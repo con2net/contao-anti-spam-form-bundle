@@ -1,0 +1,22 @@
+<?php
+// File: src/Resources/contao/templates/form_c2n_honeypot_textarea.html5
+?>
+<div class="widget widget-db-textarea">
+    <?php if ($this->label): ?>
+        <label for="ctrl_<?= $this->id ?>">
+            <?= $this->label ?>
+            <?php if ($this->mandatory): ?>
+                <span class="mandatory">*</span>
+            <?php endif; ?>
+        </label>
+    <?php endif; ?>
+
+    <textarea
+        name="<?= $this->name ?>"
+        id="ctrl_<?= $this->id ?>"
+        class="textarea"
+        placeholder="<?= $this->placeholder ?: '' ?>"
+        tabindex="-1"
+        autocomplete="off"
+        aria-hidden="true"><?= $this->value ?></textarea>
+</div>

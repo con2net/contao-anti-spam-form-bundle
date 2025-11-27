@@ -1,0 +1,32 @@
+# IDE
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.directory
+
+# PHP
+vendor/
+composer.lock
+.php_cs.cache
+.phpunit.result.cache
+
+# Logs
+*.log
+
+# Cache
+var/cache/*
+!var/cache/.gitkeep
+var/logs/*
+!var/logs/.gitkeep
+
+# Temporary files
+*.tmp
+*.bak
+*.old

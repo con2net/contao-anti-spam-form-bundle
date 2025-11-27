@@ -1,0 +1,28 @@
+<?php
+// File: src/Resources/contao/templates/form_c2n_honeypot_checkbox.html5
+?>
+<div class="widget widget-db-checkbox">
+    <fieldset>
+        <?php if ($this->label): ?>
+            <legend class="invisible">
+                <?= $this->label ?>
+            </legend>
+        <?php endif; ?>
+
+        <span>
+            <input
+                type="checkbox"
+                name="<?= $this->name ?>"
+                id="ctrl_<?= $this->id ?>"
+                class="checkbox"
+                value="1"
+                tabindex="-1"
+                autocomplete="off"
+                aria-hidden="true">
+
+            <label for="ctrl_<?= $this->id ?>">
+                <?= $this->label ?: $this->placeholder ?: '' ?>
+            </label>
+        </span>
+    </fieldset>
+</div>

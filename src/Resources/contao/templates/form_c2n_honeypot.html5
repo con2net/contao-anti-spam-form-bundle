@@ -1,0 +1,23 @@
+<?php
+// File: src/Resources/contao/templates/form_c2n_honeypot.html5
+?>
+<div class="widget widget-db-text">
+    <?php if ($this->label): ?>
+        <label for="ctrl_<?= $this->id ?>">
+            <?= $this->label ?>
+            <?php if ($this->mandatory): ?>
+                <span class="mandatory">*</span>
+            <?php endif; ?>
+        </label>
+    <?php endif; ?>
+
+    <input type="text"
+           name="<?= $this->name ?>"
+           id="ctrl_<?= $this->id ?>"
+           class="text"
+           value=""
+           placeholder="<?= $this->placeholder ?: '' ?>"
+           tabindex="-1"
+           autocomplete="off"
+           aria-hidden="true">
+</div>

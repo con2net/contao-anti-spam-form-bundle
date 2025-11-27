@@ -1,0 +1,27 @@
+{
+  "name": "con2net/contao-anti-spam-form-bundle",
+  "type": "contao-bundle",
+  "description": "Umfassendes Anti-SPAM Bundle für Contao Formulare mit ALTCHA Captcha, IP-Blacklist, Content-Analyse und Multi-Layer-Schutz",
+  "keywords": ["contao", "spam", "protection", "altcha", "captcha", "honeypot", "blacklist", "forms"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "con2net webServices",
+      "homepage": "https://www.connect2net.de"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "contao/core-bundle": "^4.13 || ^5.3",
+    "symfony/framework-bundle": "^5.4 || ^6.0 || ^7.0",
+    "altcha-org/altcha": "^1.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "Con2net\\ContaoAntiSpamFormBundle\\": "src/"
+    }
+  },
+  "extra": {
+    "contao-manager-plugin": "Con2net\\ContaoAntiSpamFormBundle\\ContaoManager\\Plugin"
+  }
+}

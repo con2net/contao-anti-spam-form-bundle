@@ -1,0 +1,95 @@
+# File: vendor/con2net/contao-anti-spam-form-bundle/src/Resources/config/services.yml
+# FIXED: Monolog Channel entfernt, nur Standard @logger verwendet
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+    public: false
+
+  Con2net\ContaoAntiSpamFormBundle\:
+    resource: '../../'
+    exclude: '../../{ContaoManager,Resources}'
+
+  # ALTCHA Service
+  con2net.antispam.altcha_service:
+    class: Con2net\ContaoAntiSpamFormBundle\Service\AltchaService
+    arguments:
+      $hmacKey: '%con2net.antispam.altcha.hmac_key%'
+      $logger: '@logger'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    public: true
+    autowire: false
+
+  # IP Blacklist Service
+  con2net.antispam.ip_blacklist_service:
+    class: Con2net\ContaoAntiSpamFormBundle\Service\IpBlacklistService
+    arguments:
+      $logger: '@logger'
+      $projectDir: '%kernel.project_dir%'
+      $cacheLifetime: '%con2net.antispam.ip_blacklist.cache_lifetime%'
+      $apiTimeout: '%con2net.antispam.ip_blacklist.api_timeout%'
+      $whitelist: '%con2net.antispam.ip_blacklist.whitelist%'
+    public: true
+    autowire: false
+
+  # Content Analysis Service
+  con2net.antispam.content_analysis_service:
+    class: Con2net\ContaoAntiSpamFormBundle\Service\ContentAnalysisService
+    arguments:
+      $logger: '@logger'
+    public: true
+    autowire: false
+
+  # Logging Helper Service
+  con2net.antispam.logging_helper:
+    class: Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper
+    arguments:
+      $logger: '@logger'
+    public: true
+    autowire: false
+
+  # Form Load Listener
+  Con2net\ContaoAntiSpamFormBundle\EventListener\FormLoadListener:
+    arguments:
+      $requestStack: '@request_stack'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    autowire: false
+
+    # Anti-SPAM Listener
+  Con2net\ContaoAntiSpamFormBundle\EventListener\AntiSpamFormListener:
+    arguments:
+      $ipBlacklistService: '@con2net.antispam.ip_blacklist_service'
+      $contentAnalysisService: '@con2net.antispam.content_analysis_service'
+      $logger: '@logger'
+      $requestStack: '@request_stack'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    autowire: false
+
+  # Page Listener
+  Con2net\ContaoAntiSpamFormBundle\EventListener\PageListener:
+    arguments:
+      $requestStack: '@request_stack'
+      $scopeMatcher: '@contao.routing.scope_matcher'
+      $framework: '@contao.framework'
+    autowire: false
+    tags:
+      - { name: kernel.event_listener, event: kernel.request, priority: 20 }
+
+  # Form Field Options Callback
+  con2net.antispam.form_field_callback:
+    class: Con2net\ContaoAntiSpamFormBundle\EventListener\FormFieldOptionsCallback
+    public: true
+
+  # Widgets
+  Con2net\ContaoAntiSpamFormBundle\Widget\HoneypotField:
+    public: true
+
+  Con2net\ContaoAntiSpamFormBundle\Widget\HoneypotTextareaField:
+    public: true
+
+  Con2net\ContaoAntiSpamFormBundle\Widget\HoneypotCheckboxField:
+    public: true
+
+  Con2net\ContaoAntiSpamFormBundle\Widget\AltchaFormField:
+    public: true
