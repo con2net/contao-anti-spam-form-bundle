@@ -13,11 +13,20 @@
 $container = \Contao\System::getContainer();
 $altchaService = $container->get('con2net.antispam.altcha_service');
 
-// Parameter aus config.yml holen
+// Parameter aus config.yml holen (mit Fallback auf Defaults)
 try {
-    $maxNumber = (int) $container->getParameter('con2net.antispam.altcha.max_number');
-    $saltLength = (int) $container->getParameter('con2net.antispam.altcha.salt_length');
-    $algorithm = (string) $container->getParameter('con2net.antispam.altcha.algorithm');
+    // Prüfen ob Parameter in config.yml definiert sind, sonst Defaults verwenden
+    $maxNumber = $container->hasParameter('con2net.antispam.altcha.max_number')
+            ? (int) $container->getParameter('con2net.antispam.altcha.max_number')
+            : 100000; // Default: Medium difficulty
+
+    $saltLength = $container->hasParameter('con2net.antispam.altcha.salt_length')
+            ? (int) $container->getParameter('con2net.antispam.altcha.salt_length')
+            : 16; // Default: 128 Bit Entropie
+
+    $algorithm = $container->hasParameter('con2net.antispam.altcha.algorithm')
+            ? (string) $container->getParameter('con2net.antispam.altcha.algorithm')
+            : 'SHA-256'; // Default: Schnell und sicher
 
     // Challenge erstellen
     $challenge = $altchaService->createChallenge(

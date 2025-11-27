@@ -2,10 +2,6 @@
 
 Ein umfassendes Anti-SPAM Bundle für Contao Formulare mit Multi-Layer-Schutz.
 
-**Version:** 1.0.0  
-**Lizenz:** MIT  
-**Kompatibilität:** Contao 4.13+ / 5.3+ | PHP 8.2+
-
 ---
 
 ## Wichtiger Hinweis / Disclaimer
@@ -94,35 +90,80 @@ ALTCHA_HMAC_KEY="DEIN-GENERIERTER-KEY-HIER"
 ###< con2net/contao-anti-spam-form-bundle ###
 ```
 
-### 3. config.yml erweitern
+### 3. ALTCHA Konfiguration (Optional)
 
-Erstelle/erweitere `app/config/config.yml` (Contao 4.13) oder `config/config.yaml` (Contao 5.3):
+### Standard-Werte (ohne config.yml)
+
+Das Bundle funktioniert **ohne zusätzliche Konfiguration** mit folgenden Default-Werten:
+
 ```yaml
-contao_anti_spam_form:
-    altcha:
-        max_number: 100000        # Schwierigkeit (10.000 - 1.000.000)
-        salt_length: 16           # Salt-Länge (8-32 Bytes)
-        algorithm: 'SHA-256'      # Hash-Algorithmus
-        
-    ip_blacklist:
-        cache_lifetime: 86400     # Cache: 24 Stunden
-        api_timeout: 5            # API-Timeout: 5 Sekunden
-        whitelist:                # Eigene IPs ausschließen
-            - '127.0.0.1'
-            - '::1'
+# Diese Werte werden automatisch verwendet, wenn keine config.yml vorhanden ist:
+ALTCHA:
+  max_number: 100000     # Medium Difficulty (gut für die meisten Websites)
+  salt_length: 16        # 128 Bit Entropie (empfohlener Sicherheitsstandard)
+  algorithm: 'SHA-256'   # Schnell und sicher
 ```
 
-#### ALTCHA Parameter
+## Eigene Werte konfigurieren (optional)
 
-| Parameter | Wertebereich | Standard | Beschreibung |
-|-----------|--------------|----------|--------------|
-| `max_number` | 10.000 - 1.000.000 | 100.000 | Schwierigkeit der Challenge. Höher = schwerer, aber länger |
-| `salt_length` | 8 - 32 | 16 | Salt-Länge in Bytes (16 = 128 Bit Entropie) |
-| `algorithm` | SHA-256, SHA-384, SHA-512 | SHA-256 | Hash-Algorithmus |
+Falls du die ALTCHA-Schwierigkeit anpassen möchtest, kannst du optional diese Konfiguration in deine `config/config.yml` einfügen:
 
-**Empfohlene Werte:**
-- Kontaktformular: `max_number: 100000` (normal, 3-4 Sek.)
-- Höhere Anforderungen: `max_number: 250000` (langsamer, 5-10 Sek.)
+```yaml
+# config/config.yml
+contao_anti_spam_form:
+  altcha:
+    # Challenge difficulty (höher = schwerer für Bots, langsamer für User)
+    # Easy: 10000, Normal: 50000, Medium: 100000, Hard: 250000, Very Hard: 500000
+    max_number: 100000
+    
+    # Salt length (8-32)
+    # 16 = 128 Bit Entropie (empfohlen für CAPTCHA)
+    salt_length: 16
+    
+    # Hash algorithm: SHA-256 (fast), SHA-384 (medium), SHA-512 (secure)
+    algorithm: 'SHA-256'
+```
+
+## Schwierigkeitsgrade in etwa
+
+| max_number | Schwierigkeit | Durchschnittliche Lösungszeit | Empfohlen für |
+|------------|---------------|-------------------------------|---------------|
+| 10.000     | Very Easy     | < 1 Sekunde                   | Testing |
+| 50.000     | Easy          | 1-2 Sekunden                  | Hoher Traffic / Mobile |
+| 100.000    | Medium        | 2-4 Sekunden                  | Standard-Websites ⭐ |
+| 250.000    | Hard          | 5-10 Sekunden                 | Hochsichere Formulare |
+| 500.000    | Very Hard     | 10-20 Sekunden                | Maximale Sicherheit |
+
+## IP-Blacklist Konfiguration
+
+Die IP-Blacklist (StopForumSpam.com) funktioniert ebenfalls mit Defaults. Optional kannst du konfigurieren:
+
+```yaml
+contao_anti_spam_form:
+  ip_blacklist:
+    cache_lifetime: 86400   # 24h Cache für API-Anfragen
+    api_timeout: 3          # 3s Timeout für StopForumSpam API
+    whitelist:
+      - '127.0.0.1'         # Localhost immer erlauben
+      - '192.168.1.0/24'    # Lokales Netzwerk
+      # - '10.0.0.0/8'      # Firmen-VPN (Beispiel)
+```
+
+## HMAC Key (erforderlich für Production)
+
+**Der HMAC Key MUSS manuell gesetzt werden:**
+
+```bash
+# .env.local
+ALTCHA_HMAC_KEY=dein-geheimer-hmac-key-hier
+```
+
+Den Key generierst du mit:
+```bash
+php -r "echo bin2hex(random_bytes(32));"
+```
+
+**Wichtig:** Der HMAC Key ist das einzige, was du zwingend konfigurieren musst. Alles andere hat Defaults!
 
 ### 4. Datenbank aktualisieren
 ```bash
