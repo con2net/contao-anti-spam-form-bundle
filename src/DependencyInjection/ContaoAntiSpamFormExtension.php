@@ -24,7 +24,6 @@ class ContaoAntiSpamFormExtension extends Extension
         $container->setParameter('con2net.antispam.altcha.max_number', $config['altcha']['max_number']);
         $container->setParameter('con2net.antispam.altcha.salt_length', $config['altcha']['salt_length']);
         $container->setParameter('con2net.antispam.altcha.algorithm', $config['altcha']['algorithm']);
-        $container->setParameter('con2net.antispam.altcha.expires', $config['altcha']['expires']);
 
         // IP Blacklist Parameter
         $container->setParameter('con2net.antispam.ip_blacklist.cache_lifetime', $config['ip_blacklist']['cache_lifetime']);

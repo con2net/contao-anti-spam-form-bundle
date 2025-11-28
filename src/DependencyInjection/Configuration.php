@@ -41,11 +41,6 @@ class Configuration implements ConfigurationInterface
             ->end()
             ->info('Hash algorithm to use')
             ->end()
-            ->integerNode('expires')
-            ->defaultValue(900)
-            ->min(0)
-            ->info('Challenge expiration in seconds (0 = no expiration, recommended: 300-900)')
-            ->end()
             ->end()
             ->end()
 

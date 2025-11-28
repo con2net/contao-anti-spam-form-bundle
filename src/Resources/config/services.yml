@@ -15,7 +15,7 @@ services:
   con2net.antispam.altcha_service:
     class: Con2net\ContaoAntiSpamFormBundle\Service\AltchaService
     arguments:
-      $hmacKey: '%con2net.antispam.altcha.hmac_key%'
+      $hmacKey: '%env(ALTCHA_HMAC_KEY)%'
       $logger: '@logger'
       $loggingHelper: '@con2net.antispam.logging_helper'
     public: true
