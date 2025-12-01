@@ -25,18 +25,22 @@ class AltchaFormField extends Widget
     {
         parent::validate();
 
-        $payload = $this->varValue;
+        // WICHTIG: $_POST direkt nutzen, nicht $this->varValue!
+        // Contao\Input korruptiert den Base64-Payload (fügt Zeichen hinzu, ersetzt =)
+        $payload = isset($_POST[$this->name]) ? $_POST[$this->name] : '';
 
-        // Sicherstellen dass Wert IMMER ein String ist (wichtig für Notification Center!)
+        // Sicherstellen dass Wert IMMER ein String ist
         if (is_array($payload)) {
             $payload = implode('', $payload);
         }
 
-        $this->varValue = (string)$payload;
+        $this->varValue = (string)$payload;  // Für Notification Center
+
+        $loggingHelper = System::getContainer()->get('con2net.antispam.logging_helper');
 
         // Payload muss vorhanden sein
         if (empty($payload)) {
-            $loggingHelper = System::getContainer()->get('con2net.antispam.logging_helper');
+            // Fehler loggen (auch ohne Debug-Modus)
             $loggingHelper->logError(
                 'ALTCHA FAILED: No payload received for field "' . $this->name . '"',
                 __METHOD__
@@ -53,7 +57,7 @@ class AltchaFormField extends Widget
         $isValid = $altchaService->validate($payload);
 
         if (!$isValid) {
-            $loggingHelper = System::getContainer()->get('con2net.antispam.logging_helper');
+            // Fehler loggen (auch ohne Debug-Modus)
             $loggingHelper->logError(
                 'ALTCHA FAILED: Invalid solution for field "' . $this->name . '"',
                 __METHOD__
@@ -61,8 +65,9 @@ class AltchaFormField extends Widget
 
             $this->addError('Sicherheitsprüfung fehlgeschlagen. Bitte versuchen Sie es erneut.');
             $this->varValue = '';
-        } else {
-            $loggingHelper = System::getContainer()->get('con2net.antispam.logging_helper');
+        }
+        // Erfolg nur im Debug-Modus loggen
+        else if (isset($GLOBALS['TL_CONFIG']['c2n_antispam_debug']) && $GLOBALS['TL_CONFIG']['c2n_antispam_debug']) {
             $loggingHelper->logInfo(
                 'ALTCHA validated successfully for field "' . $this->name . '"',
                 __METHOD__
