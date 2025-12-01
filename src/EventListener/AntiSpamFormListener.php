@@ -69,6 +69,9 @@ class AntiSpamFormListener
             return;
         }
 
+        // Technische Felder aus raw_data entfernen
+        $this->removeInternalFields($submittedData, $fields);
+
         $debugMode = (bool)$formModel->c2n_debug;
         $spamMarker = html_entity_decode(
             $formModel->c2n_spam_prefix ?: '*** SPAM *** ',
@@ -534,10 +537,6 @@ class AntiSpamFormListener
         if (!isset($submittedData['spam_marker'])) {
             $submittedData['spam_marker'] = '';
         }
-
-        // TECHNISCHE FELDER AUS RAW_DATA ENTFERNEN
-        // Diese Felder sollen NICHT in ##raw_data## erscheinen!
-        $this->removeInternalFields($submittedData, $fields);
 
         if ($debugMode) {
             $this->loggingHelper->logInfo(
