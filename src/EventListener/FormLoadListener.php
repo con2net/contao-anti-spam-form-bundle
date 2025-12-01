@@ -36,7 +36,13 @@ class FormLoadListener
      */
     public function __invoke(array $fields, string $formId, Form $form): array
     {
-        $formIdInt = (int)$formId;
+        // FIX: In Contao 5.3 kann formId "auto_form_1" sein (String mit Prefix)
+        // Wir müssen die Nummer extrahieren!
+        if (strpos($formId, 'auto_form_') === 0) {
+            $formIdInt = (int)str_replace('auto_form_', '', $formId);
+        } else {
+            $formIdInt = (int)$formId;
+        }
 
         // Formular-Konfiguration laden
         $formModel = FormModel::findByPk($formIdInt);
@@ -52,7 +58,7 @@ class FormLoadListener
             // Kein Request oder keine Session - abbrechen
             if ($formModel->c2n_debug) {
                 $this->loggingHelper->logError(
-                    sprintf('⚠️ Anti-SPAM: No session available for form %d', $formIdInt),
+                    sprintf('Anti-SPAM: No session available for form %d', $formIdInt),
                     __METHOD__
                 );
             }
@@ -71,7 +77,7 @@ class FormLoadListener
 
             if ($formModel->c2n_debug) {
                 $this->loggingHelper->logInfo(
-                    sprintf('⏱️ Anti-SPAM: Timestamp (%d) stored in SESSION for form %d', $timestamp, $formIdInt),
+                    sprintf('Anti-SPAM: Timestamp (%d) stored in SESSION for form %d', $timestamp, $formIdInt),
                     __METHOD__
                 );
             }
@@ -80,7 +86,7 @@ class FormLoadListener
 
             if ($formModel->c2n_debug) {
                 $this->loggingHelper->logInfo(
-                    sprintf('⏱️ Anti-SPAM: Using existing SESSION timestamp (%d) for form %d', $existingTimestamp, $formIdInt),
+                    sprintf('Anti-SPAM: Using existing SESSION timestamp (%d) for form %d', $existingTimestamp, $formIdInt),
                     __METHOD__
                 );
             }

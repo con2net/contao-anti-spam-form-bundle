@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  * Page Listener
  *
  * Bindet automatisch CSS und JavaScript ein wenn Anti-SPAM aktiviert ist
- * NEU: Lädt ALTCHA Assets lokal (DSGVO-konform, kein CDN!)
+ * Lädt ALTCHA Assets lokal (DSGVO-konform, kein CDN!)
  */
 class PageListener
 {
@@ -50,11 +50,11 @@ class PageListener
         $hasAntiSpam = $this->hasAntiSpamForms();
 
         if ($hasAntiSpam) {
-            // CSS einbinden
-            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/c2n-styles.css|static';
+            // CSS einbinden (OHNE |static für bessere Kompatibilität)
+            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/c2n-styles.css';
 
             // JavaScript einbinden
-            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/timetoken.js|static';
+            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/timetoken.js';
         }
 
         // ===== NEU: ALTCHA Assets laden (DSGVO-konform, lokal!) =====
@@ -65,10 +65,10 @@ class PageListener
             $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js"></script>';
 
             // ALTCHA Event-Handler (normales Script)
-            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/altcha-handler.js|static';
+            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/altcha-handler.js';
 
-            // ALTCHA Styles
-            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/altcha-styles.css|static';
+            // ALTCHA Styles (OHNE |static)
+            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/altcha-styles.css';
         }
     }
 

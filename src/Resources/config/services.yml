@@ -1,5 +1,4 @@
-# File: vendor/con2net/contao-anti-spam-form-bundle/src/Resources/config/services.yml
-# FIXED: Monolog Channel entfernt, nur Standard @logger verwendet
+# File: src/Resources/config/services.yml
 
 services:
   _defaults:
@@ -49,14 +48,16 @@ services:
     public: true
     autowire: false
 
-  # Form Load Listener
+  # Form Load Listener (MIT expliziter Hook-Registrierung für Contao 5.3)
   Con2net\ContaoAntiSpamFormBundle\EventListener\FormLoadListener:
     arguments:
       $requestStack: '@request_stack'
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
+    tags:
+      - { name: contao.hook, hook: compileFormFields, priority: 100 }
 
-    # Anti-SPAM Listener
+  # Anti-SPAM Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\AntiSpamFormListener:
     arguments:
       $ipBlacklistService: '@con2net.antispam.ip_blacklist_service'
@@ -66,7 +67,7 @@ services:
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 
-    # Cleanup Listener (läuft NACH AntiSpamFormListener)
+  # Cleanup Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\CleanupFormDataListener:
     autowire: false
 
