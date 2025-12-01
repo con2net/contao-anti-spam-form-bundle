@@ -66,6 +66,10 @@ services:
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 
+    # Cleanup Listener (läuft NACH AntiSpamFormListener)
+  Con2net\ContaoAntiSpamFormBundle\EventListener\CleanupFormDataListener:
+    autowire: false
+
   # Page Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\PageListener:
     arguments:

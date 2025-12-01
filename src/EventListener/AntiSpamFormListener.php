@@ -69,9 +69,6 @@ class AntiSpamFormListener
             return;
         }
 
-        // Technische Felder aus raw_data entfernen
-        $this->removeInternalFields($submittedData, $fields);
-
         $debugMode = (bool)$formModel->c2n_debug;
         $spamMarker = html_entity_decode(
             $formModel->c2n_spam_prefix ?: '*** SPAM *** ',
@@ -652,29 +649,5 @@ class AntiSpamFormListener
 
         $session = System::getContainer()->get('session');
         $session->remove('c2n_form_timestamp_' . $formId);
-    }
-
-    /**
-     * Entfernt interne/technische Felder aus submittedData
-     * Diese Felder sollen NICHT in ##raw_data## erscheinen!
-     */
-    private function removeInternalFields(array &$submittedData, array $fields): void
-    {
-        // 1. Alle ALTCHA Felder entfernen
-        foreach ($fields as $field) {
-            if ($field->type === 'c2n_altcha') {
-                unset($submittedData[$field->name]);
-            }
-        }
-
-        // 2. Alle Honeypot Felder entfernen
-        foreach ($fields as $field) {
-            if (in_array($field->type, ['c2n_honeypot', 'c2n_honeypot_textarea', 'c2n_honeypot_checkbox'])) {
-                unset($submittedData[$field->name]);
-            }
-        }
-
-        // 3. spam_marker Token entfernen (wird separat als SimpleToken bereitgestellt)
-        unset($submittedData['spam_marker']);
     }
 }
