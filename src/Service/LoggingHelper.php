@@ -71,4 +71,39 @@ class LoggingHelper
         // Debug-Logs gehen NUR in die Log-Dateien, NICHT ins Backend System-Log
         $this->logger->debug($message, $context);
     }
+
+    /**
+     * Loggt SPAM-Erkennungen
+     *
+     * Production: Kurze Meldung mit FormName
+     * Debug: Detaillierte Meldung mit Grund
+     *
+     * @param string $formName Name des Formulars
+     * @param int $formId ID des Formulars
+     * @param bool $debugMode Ob Debug-Modus aktiv ist
+     * @param string|null $reason Optional: Detaillierter Grund (nur für Debug)
+     */
+    public function logSpamDetected(
+        string $formName,
+        int $formId,
+        bool $debugMode = false,
+        ?string $reason = null
+    ): void
+    {
+        if ($debugMode && $reason) {
+            // Debug-Modus: Detaillierte Meldung mit Grund
+            $this->logError(
+                sprintf('SPAM DETECTED: %s', $reason),
+                __METHOD__
+            );
+        } elseif (!$debugMode) {
+            // Production: Kurze, saubere Meldung
+            $this->logError(
+                sprintf('Form "%s" (ID: %d) - SPAM DETECTED', $formName, $formId),
+                __METHOD__
+            );
+        }
+        // Wenn debugMode=true aber kein reason: Keine Ausgabe
+        // (Detail-Logs kommen separat von den einzelnen Checks)
+    }
 }

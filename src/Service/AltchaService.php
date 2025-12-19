@@ -16,7 +16,7 @@ use Psr\Log\LoggerInterface;
  *
  * Validates ALTCHA Challenge-Responses and creates Challenges
  *
-  * Das expires-Property wird NICHT mehr verwendet, da es in neueren
+ * Das expires-Property wird NICHT mehr verwendet, da es in neueren
  * ALTCHA Library Versionen nicht mehr existiert.
  *
  * @author con2net webServices
@@ -50,32 +50,21 @@ class AltchaService
             $result = $altcha->verifySolution($payload);
 
             if ($result) {
+                // Success: Widget loggt das im Debug-Modus ins Backend System-Log
+                // Hier nur technisches Debug-Log für var/logs
                 if ($this->logger) {
-                    $this->logger->info('ALTCHA validation successful', [
+                    $this->logger->debug('ALTCHA validation successful', [
                         'payload_length' => strlen($payload)
                     ]);
-                }
-
-                if ($this->loggingHelper) {
-                    $this->loggingHelper->logInfo(
-                        'ALTCHA validated successfully',
-                        __METHOD__
-                    );
                 }
 
                 return true;
             } else {
                 if ($this->logger) {
-                    $this->logger->warning('ALTCHA validation failed - invalid solution');
+                    $this->logger->debug('ALTCHA validation failed - invalid solution');
                 }
 
-                if ($this->loggingHelper) {
-                    $this->loggingHelper->logError(
-                        'ALTCHA FAILED: Invalid solution',
-                        __METHOD__
-                    );
-                }
-
+                // Widget loggt den User-sichtbaren Fehler, hier nur Debug-Info
                 return false;
             }
         } catch (\Exception $e) {

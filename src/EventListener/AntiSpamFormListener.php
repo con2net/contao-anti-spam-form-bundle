@@ -80,6 +80,7 @@ class AntiSpamFormListener
         $blockSpam = (bool)$formModel->c2n_block_spam;
         $enableIpBlacklist = (bool)($formModel->c2n_enable_ip_blacklist ?? false);
         $enableContentAnalysis = (bool)($formModel->c2n_enable_content_analysis ?? false);
+        $formName = $formModel->title ?: 'Form ' . $formId;
 
         if ($debugMode) {
             $this->loggingHelper->logInfo(
@@ -183,9 +184,11 @@ class AntiSpamFormListener
                 $isBlacklisted = $this->ipBlacklistService->isIpBlacklisted($userIp);
 
                 if ($isBlacklisted) {
-                    $this->loggingHelper->logError(
-                        sprintf('SPAM DETECTED: IP %s is on blacklist!', $userIp),
-                        __METHOD__
+                    $this->loggingHelper->logSpamDetected(
+                        $formName,
+                        $formId,
+                        $debugMode,
+                        sprintf('IP %s is on blacklist', $userIp)
                     );
 
                     $honeypotFields = $this->findAllHoneypotFields($fields);
@@ -231,9 +234,11 @@ class AntiSpamFormListener
                     $isBlacklisted = $this->ipBlacklistService->isEmailBlacklisted($email);
 
                     if ($isBlacklisted) {
-                        $this->loggingHelper->logError(
-                            sprintf('SPAM DETECTED: E-Mail %s is on blacklist!', $email),
-                            __METHOD__
+                        $this->loggingHelper->logSpamDetected(
+                            $formName,
+                            $formId,
+                            $debugMode,
+                            sprintf('E-Mail %s is on blacklist', $email)
                         );
 
                         $honeypotFields = $this->findAllHoneypotFields($fields);
@@ -364,12 +369,11 @@ class AntiSpamFormListener
                 }
 
                 if ($result['is_spam']) {
-                    $this->loggingHelper->logError(
-                        sprintf('SPAM DETECTED by Content Analysis! Score: %d (Threshold: %d)',
-                            $result['score'],
-                            $result['threshold']
-                        ),
-                        __METHOD__
+                    $this->loggingHelper->logSpamDetected(
+                        $formName,
+                        $formId,
+                        $debugMode,
+                        sprintf('Content Analysis Score: %d >= Threshold: %d', $result['score'], $result['threshold'])
                     );
 
                     $this->logger->warning('Content Analysis detected SPAM', [
@@ -466,15 +470,17 @@ class AntiSpamFormListener
                 $spamMarkerTrimmed = trim($spamMarker);
 
                 if ($honeypotValue === $spamMarkerTrimmed || $honeypotValue === '*** SPAM ***') {
-                    $this->loggingHelper->logError(
-                        sprintf('SPAM DETECTED: Honeypot "%s" was filled by Ghost!', $honeypotField),
-                        __METHOD__
+                    $this->loggingHelper->logSpamDetected(
+                        $formName,
+                        $formId,
+                        $debugMode,
+                        sprintf('Honeypot "%s" was filled', $honeypotField)
                     );
                     $this->markAsSpam($submittedData, $honeypotField, $spamMarker, $formId);
 
                     if ($blockSpam) {
                         $this->blockSpam($formId);
-                    } else {
+                    } elseif ($debugMode) {
                         $this->loggingHelper->logInfo('SPAM MARKED: E-Mail will be sent with SPAM marker', __METHOD__);
                     }
 
@@ -486,9 +492,11 @@ class AntiSpamFormListener
 
         // ===== PRÜFUNG 2: MIN-ZEIT CHECK =====
         if ($timeTaken < $minSubmitTime) {
-            $this->loggingHelper->logError(
-                sprintf('SPAM DETECTED (too fast): Form submitted in %d seconds (min: %d)', $timeTaken, $minSubmitTime),
-                __METHOD__
+            $this->loggingHelper->logSpamDetected(
+                $formName,
+                $formId,
+                $debugMode,
+                sprintf('Submitted too fast: %d seconds (min: %d)', $timeTaken, $minSubmitTime)
             );
 
             $this->markAsSpam(
@@ -508,9 +516,11 @@ class AntiSpamFormListener
 
         // ===== PRÜFUNG 3: MAX-ZEIT CHECK =====
         if ($maxSubmitTime > 0 && $timeTaken > $maxSubmitTime) {
-            $this->loggingHelper->logError(
-                sprintf('SPAM DETECTED (too slow): Form submitted in %d seconds (max: %d)', $timeTaken, $maxSubmitTime),
-                __METHOD__
+            $this->loggingHelper->logSpamDetected(
+                $formName,
+                $formId,
+                $debugMode,
+                sprintf('Submitted too slow: %d seconds (max: %d)', $timeTaken, $maxSubmitTime)
             );
 
             $this->markAsSpam(

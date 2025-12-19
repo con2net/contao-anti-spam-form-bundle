@@ -66,7 +66,7 @@ class AltchaFormField extends Widget
             $this->addError('Sicherheitsprüfung fehlgeschlagen. Bitte versuchen Sie es erneut.');
             $this->varValue = '';
         }
-        // Erfolg nur im Debug-Modus loggen
+        // Erfolg nur im Debug-Modus ins Backend System-Log
         else if (isset($GLOBALS['TL_CONFIG']['c2n_antispam_debug']) && $GLOBALS['TL_CONFIG']['c2n_antispam_debug']) {
             $loggingHelper->logInfo(
                 'ALTCHA validated successfully for field "' . $this->name . '"',
