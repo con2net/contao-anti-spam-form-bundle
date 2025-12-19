@@ -81,14 +81,14 @@ $bytes = New-Object byte[] 32
 
 **Ausgabe z.B.:** `K8vJ9mNpQ2xRzT4yH6wL3eFgD1sA5bC7oU0iM9nV2kX=`
 
-### 2. .env.local Datei anlegen
-
-Erstelle eine `.env.local` Datei im Root-Verzeichnis deiner Contao-Installation:
+### 2. Key in .env.local Datei anlegen
+ Ergänze in der`.env.local` Datei im Root-Verzeichnis deiner Contao-Installation:
 ```bash
 ###> con2net/contao-anti-spam-form-bundle ###
 ALTCHA_HMAC_KEY="DEIN-GENERIERTER-KEY-HIER"
 ###< con2net/contao-anti-spam-form-bundle ###
 ```
+Hinweis: Solltest du noch keine .env.local Datei haben, lege diese bitte an. Lege in diesem Fall auch eine (leere) .env Datei direkt daneben ins Root-Verzeichnis Deiner Contao-Installation. 
 
 ### 3. ALTCHA Konfiguration (Optional)
 
