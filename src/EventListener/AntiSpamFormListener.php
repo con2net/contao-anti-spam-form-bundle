@@ -657,7 +657,10 @@ class AntiSpamFormListener
         $GLOBALS['TL_HOOKS']['prepareFormData'] = [];
         $GLOBALS['TL_HOOKS']['processFormData'] = [];
 
-        $session = System::getContainer()->get('session');
-        $session->remove('c2n_form_timestamp_' . $formId);
+        $request = $this->requestStack->getCurrentRequest();
+        if ($request && $request->hasSession()) {
+            $session = $request->getSession();
+            $session->remove('c2n_form_timestamp_' . $formId);
+        }
     }
 }
