@@ -12,6 +12,7 @@ use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\Form;
 use Contao\FormModel;
 use Contao\System;
+use Contao\Controller;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -645,22 +646,19 @@ class AntiSpamFormListener
      */
     private function blockSpam(int $formId): void
     {
-        $this->loggingHelper->logError('SPAM BLOCKED: E-Mail will NOT be sent', __METHOD__);
+        $this->loggingHelper->logError('SPAM BLOCKED: Redirecting to prevent form processing', __METHOD__);
 
-        $GLOBALS['C2N_BLOCK_EMAIL'][$formId] = true;
-
-        $_SESSION['FORM_DATA']['auto_form_' . $formId] = [
-            'error' => true,
-            'message' => 'Ihre Anfrage konnte nicht verarbeitet werden. Bitte versuchen Sie es später erneut.'
-        ];
-
-        $GLOBALS['TL_HOOKS']['prepareFormData'] = [];
-        $GLOBALS['TL_HOOKS']['processFormData'] = [];
-
+        // Session aufräumen
         $request = $this->requestStack->getCurrentRequest();
         if ($request && $request->hasSession()) {
-            $session = $request->getSession();
-            $session->remove('c2n_form_timestamp_' . $formId);
+            $request->getSession()->remove('c2n_form_timestamp_' . $formId);
         }
+
+        // Natives header() + exit() – kann NICHT von try-catch gefangen werden.
+        // Controller::redirect() wirft intern eine Exception die in Contao 5
+        // von umgebenden try-catch Blöcken abgefangen werden kann.
+        $uri = $request ? $request->getUri() : '/';
+        header('Location: ' . $uri, true, 302);
+        exit();
     }
 }
