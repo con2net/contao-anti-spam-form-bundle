@@ -41,16 +41,11 @@ Das Bundle kombiniert **7 verschiedene Schutzebenen**, die einzeln aktiviert und
 - **DSGVO-konform** - Keine externen Tracking-Skripte, Daten bleiben auf dem Server
 - **Fehler-tolerant** - API-Ausfälle brechen Formular-Submits nicht ab
 - **Debug-Modus** - Ausführliche Logs für Entwickler
-- **Kompatibel** - Funktioniert mit Notification Center, Standard-Mails, etc.
+- **Kompatibel** - Funktioniert mit Notification Center, Standard-Mails, mehrstufigen Formularen (mp_forms) u.v.m.
 
 ---
 
 ## Installation
-
-### Via Composer (empfohlen)
-```bash
-composer require con2net/contao-anti-spam-form-bundle
-```
 
 ### Via Contao Manager
 
@@ -58,6 +53,16 @@ composer require con2net/contao-anti-spam-form-bundle
 2. Nach "con2net/contao-anti-spam-form-bundle" suchen
 3. Bundle installieren
 4. Datenbank aktualisieren
+
+### Alternativ auch via Composer
+```bash
+composer require con2net/contao-anti-spam-form-bundle
+```
+Datenbank aktualisieren
+```bash
+php vendor/bin/contao-console contao:migrate
+```
+
 
 ---
 
@@ -82,13 +87,16 @@ $bytes = New-Object byte[] 32
 **Ausgabe z.B.:** `K8vJ9mNpQ2xRzT4yH6wL3eFgD1sA5bC7oU0iM9nV2kX=`
 
 ### 2. Key in .env.local Datei anlegen
- Ergänze in der`.env.local` Datei im Root-Verzeichnis deiner Contao-Installation:
+Ergänze in der .env.local Datei im Root-Verzeichnis deiner Contao-Installation (dort wo auch die composer.json liegt, nicht im public/-Unterordner!):
 ```bash
 ###> con2net/contao-anti-spam-form-bundle ###
 ALTCHA_HMAC_KEY="DEIN-GENERIERTER-KEY-HIER"
 ###< con2net/contao-anti-spam-form-bundle ###
 ```
-Hinweis: Solltest du noch keine .env.local Datei haben, lege diese bitte an. Lege in diesem Fall auch eine (leere) .env Datei direkt daneben ins Root-Verzeichnis Deiner Contao-Installation. 
+Hinweis: Solltest du noch keine .env.local Datei haben, lege diese bitte an. Falls auch keine .env vorhanden ist, lege zusätzlich eine leere .env Datei direkt daneben ins Root-Verzeichnis.
+
+
+Wichtig für Shared Hosting: Das Root-Verzeichnis ist typischerweise eine Ebene oberhalb des Webroots. Beispiel: Webroot ist ./client_1234/public_html/public/, dann gehört die .env.local nach ./client_1234/public_html/. 
 
 ### 3. ALTCHA Konfiguration (Optional)
 
@@ -120,21 +128,22 @@ contao_anti_spam_form:
     # 16 = 128 Bit Entropie (empfohlen für CAPTCHA)
     salt_length: 16
     
-    # Hash algorithm: SHA-256 (fast), SHA-384 (medium), SHA-512 (secure)
+    # Hash algorithm: Aktuell nur SHA-256 unterstützt!
+    # SHA-384 und SHA-512 führen zu Fehlern und werden in einer späteren Version ergänzt.
     algorithm: 'SHA-256'
 ```
 
-## Schwierigkeitsgrade in etwa
+## Schwierigkeitsgrade (in etwa ;-))
 
-| max_number | Schwierigkeit | Durchschnittliche Lösungszeit | Empfohlen für |
-|------------|---------------|-------------------------------|---------------|
-| 10.000     | Very Easy     | < 1 Sekunde                   | Testing |
+| max_number | Schwierigkeit | Durchschnittliche Lösungszeit | Empfohlen für         |
+|------------|---------------|-------------------------------|-----------------------|
+| 10.000     | Very Easy     | < 1 Sekunde                   | Testing               |
 | 50.000     | Easy          | 1-2 Sekunden                  | Hoher Traffic / Mobile |
-| 100.000    | Medium        | 2-4 Sekunden                  | Standard-Websites ⭐ |
+| 100.000    | Medium        | 2-4 Sekunden                  | **Standard-Websites** |
 | 250.000    | Hard          | 5-10 Sekunden                 | Hochsichere Formulare |
-| 500.000    | Very Hard     | 10-20 Sekunden                | Maximale Sicherheit |
+| 500.000    | Very Hard     | 10-20 Sekunden                | Maximale Sicherheit   |
 
-## IP-Blacklist Konfiguration
+## IP-Blacklist Konfiguration (Optional)
 
 Die IP-Blacklist (StopForumSpam.com) funktioniert ebenfalls mit Defaults. Optional kannst du konfigurieren:
 
@@ -148,32 +157,6 @@ contao_anti_spam_form:
       - '192.168.1.0/24'    # Lokales Netzwerk
       # - '10.0.0.0/8'      # Firmen-VPN (Beispiel)
 ```
-
-## HMAC Key (erforderlich für Production)
-
-**Der HMAC Key MUSS manuell gesetzt werden:**
-
-```bash
-# .env.local
-ALTCHA_HMAC_KEY=dein-geheimer-hmac-key-hier
-```
-
-Den Key generierst du mit:
-```bash
-php -r "echo bin2hex(random_bytes(32));"
-```
-
-**Wichtig:** Der HMAC Key ist das einzige, was du zwingend konfigurieren musst. Alles andere hat Defaults!
-
-### 4. Datenbank aktualisieren
-```bash
-# Via Console
-php vendor/bin/contao-console contao:migrate
-
-# ODER via Contao Manager
-https://deine-domain.de/contao-manager.phar.php
-```
-
 ---
 
 ## Verwendung
@@ -327,12 +310,17 @@ Hier findest du alle Anti-SPAM Ereignisse:
 
 ## Troubleshooting
 
+### .env.local wird nicht erkannt
+Die .env.local muss im Contao-Root-Verzeichnis liegen – dort wo die composer.json ist. Bei typischen Shared-Hosting-Setups liegt der Webroot in einem Unterordner (public/ oder web/). Die .env.local gehört eine Ebene darüber, nicht in den Webroot.
+Nach dem Anlegen der Datei unbedingt den Cache leeren:
+bashphp vendor/bin/contao-console cache:clear
+
 ### ALTCHA wird nicht angezeigt
 
 **Prüfe:**
 1. HMAC-Key in `.env.local` gesetzt?
 2. ALTCHA-Formularfeld hinzugefügt?
-3. Cache geleert? (`rm -rf var/cache/*`)
+3. Cache geleert? (`rm -rf var/cache/*` bzw. `php vendor/bin/contao-console cache:clear`
 4. Browser-Console: JavaScript-Fehler?
 
 ### Content-Analyse funktioniert nicht
