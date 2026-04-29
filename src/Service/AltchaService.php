@@ -1,28 +1,35 @@
 <?php
-// File: vendor/con2net/contao-anti-spam-form-bundle/src/Service/AltchaService.php
+// File: src/Service/AltchaService.php
 
 declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\Service;
 
-use AltchaOrg\Altcha\Altcha;
-use AltchaOrg\Altcha\ChallengeOptions;
-use AltchaOrg\Altcha\Hasher\Algorithm;
-use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
+// V1 compatibility namespace: still available in altcha-org/altcha ^2.0.
+// Full V2 migration (PBKDF2/Argon2id) will follow in v1.2.0.
+use AltchaOrg\Altcha\V1\Altcha;
+use AltchaOrg\Altcha\V1\ChallengeOptions;
+use AltchaOrg\Altcha\V1\Hasher\Algorithm;
+use Contao\Database;
 use Psr\Log\LoggerInterface;
 
 /**
  * ALTCHA Service
  *
- * Validates ALTCHA Challenge-Responses and creates Challenges
+ * Validates ALTCHA challenge responses and creates challenges.
  *
- * Das expires-Property wird NICHT mehr verwendet, da es in neueren
- * ALTCHA Library Versionen nicht mehr existiert.
+ * HMAC key priority:
+ *   1. ALTCHA_HMAC_KEY in .env.local (power users, recommended for production)
+ *   2. Auto-generated key stored in tl_c2n_settings (default, zero-config)
  *
  * @author con2net webServices
  */
 class AltchaService
 {
+    // Bundle identifier used as namespace in tl_c2n_settings
+    private const BUNDLE = 'antispam';
+    private const KEY_HMAC = 'altcha_hmac_key';
+
     private string $hmacKey;
     private ?LoggerInterface $logger;
     private ?LoggingHelper $loggingHelper;
@@ -32,26 +39,74 @@ class AltchaService
         ?LoggerInterface $logger = null,
         ?LoggingHelper $loggingHelper = null
     ) {
-        $this->hmacKey = $hmacKey ?: '';
+        $this->hmacKey = $hmacKey ?? '';
         $this->logger = $logger;
         $this->loggingHelper = $loggingHelper;
     }
 
     /**
-     * Validates an ALTCHA Challenge-Response
+     * Returns the active HMAC key.
      *
-     * @param string $payload Base64-encoded Challenge-String from form
-     * @return bool True if valid, false if invalid or error
+     * Priority: .env.local → tl_c2n_settings → generate new + persist
+     */
+    private function getHmacKey(): string
+    {
+        // 1. Manually configured key always takes precedence
+        if (!empty($this->hmacKey)) {
+            return $this->hmacKey;
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            // 2. Try to load existing auto-generated key from tl_c2n_settings
+            $result = $db->prepare(
+                "SELECT setting_value FROM tl_c2n_settings WHERE bundle=? AND setting_key=? LIMIT 1"
+            )->execute(self::BUNDLE, self::KEY_HMAC);
+
+            if ($result->numRows > 0 && !empty($result->setting_value)) {
+                return $result->setting_value;
+            }
+
+            // 3. Generate new key and persist to tl_c2n_settings
+            $newKey = bin2hex(random_bytes(32));
+
+            $db->prepare(
+                "INSERT INTO tl_c2n_settings (bundle, setting_key, setting_value) VALUES (?, ?, ?)"
+            )->execute(self::BUNDLE, self::KEY_HMAC, $newKey);
+
+            if ($this->logger) {
+                $this->logger->info('ALTCHA: Auto-generated HMAC key saved to tl_c2n_settings.');
+            }
+
+            return $newKey;
+
+        } catch (\Throwable $e) {
+            // Fallback: temporary key for this request only.
+            // Occurs when DB has not been migrated yet (contao:migrate not run).
+            if ($this->logger) {
+                $this->logger->warning(
+                    'ALTCHA auto-key failed (run contao:migrate?): ' . $e->getMessage()
+                );
+            }
+
+            return bin2hex(random_bytes(32));
+        }
+    }
+
+    /**
+     * Validates an ALTCHA challenge response.
+     *
+     * @param string $payload Base64-encoded challenge string from form
+     * @return bool True if valid, false if invalid or on error
      */
     public function validate(string $payload): bool
     {
         try {
-            $altcha = new Altcha($this->hmacKey);
+            $altcha = new Altcha($this->getHmacKey());
             $result = $altcha->verifySolution($payload);
 
             if ($result) {
-                // Success: Widget loggt das im Debug-Modus ins Backend System-Log
-                // Hier nur technisches Debug-Log für var/logs
                 if ($this->logger) {
                     $this->logger->debug('ALTCHA validation successful', [
                         'payload_length' => strlen($payload)
@@ -59,14 +114,14 @@ class AltchaService
                 }
 
                 return true;
-            } else {
-                if ($this->logger) {
-                    $this->logger->debug('ALTCHA validation failed - invalid solution');
-                }
-
-                // Widget loggt den User-sichtbaren Fehler, hier nur Debug-Info
-                return false;
             }
+
+            if ($this->logger) {
+                $this->logger->debug('ALTCHA validation failed - invalid solution');
+            }
+
+            return false;
+
         } catch (\Exception $e) {
             if ($this->logger) {
                 $this->logger->error('ALTCHA validation error: ' . $e->getMessage(), [
@@ -86,46 +141,41 @@ class AltchaService
     }
 
     /**
-     * Creates an ALTCHA Challenge
+     * Creates an ALTCHA challenge.
      *
-     * @param int $maxNumber Maximum number for challenge (difficulty)
-     * @param int $saltLength Length of salt (8-32 characters)
+     * @param int $maxNumber Maximum number for challenge difficulty
+     * @param int $saltLength Salt length in characters (8-32)
      * @param string $algorithmName Hash algorithm ('SHA-256', 'SHA-384', 'SHA-512')
-     * @param int|null $expires Challenge expiration in seconds (NOT USED - kept for compatibility)
-     * @return array Challenge data as array
+     * @param int|null $expires NOT USED - kept for backwards compatibility
+     * @return array Challenge data as array, empty array on error
      */
     public function createChallenge(
         int $maxNumber = 100000,
         int $saltLength = 16,
         string $algorithmName = 'SHA-256',
         ?int $expires = null
-    ): array
-    {
+    ): array {
         try {
-            $altcha = new Altcha($this->hmacKey);
+            $altcha = new Altcha($this->getHmacKey());
 
-            // Convert string to Algorithm enum
-            $algorithm = match($algorithmName) {
+            $algorithm = match(strtoupper($algorithmName)) {
                 'SHA-384' => Algorithm::SHA384,
                 'SHA-512' => Algorithm::SHA512,
-                default => Algorithm::SHA256
+                default   => Algorithm::SHA256,
             };
 
-            // Create ChallengeOptions
             $options = new ChallengeOptions(
                 algorithm: $algorithm,
                 maxNumber: $maxNumber,
                 saltLength: $saltLength
             );
 
-            // Create challenge
             $challenge = $altcha->createChallenge($options);
 
-            // Return as array for JSON serialization
             $result = [
                 'algorithm' => $challenge->algorithm->value ?? 'SHA-256',
                 'challenge' => $challenge->challenge ?? '',
-                'salt' => $challenge->salt ?? '',
+                'salt'      => $challenge->salt ?? '',
                 'signature' => $challenge->signature ?? '',
             ];
 
@@ -155,7 +205,6 @@ class AltchaService
                 );
             }
 
-            // Return empty array on error
             return [];
         }
     }

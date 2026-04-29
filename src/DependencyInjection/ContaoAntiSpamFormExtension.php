@@ -18,7 +18,7 @@ class ContaoAntiSpamFormExtension extends Extension
         $config = $this->processConfiguration($configuration, $configs);
 
         // ALTCHA HMAC-Key aus ENV
-        $container->setParameter('con2net.antispam.altcha.hmac_key', '%env(ALTCHA_HMAC_KEY)%');
+        $container->setParameter('con2net.antispam.altcha.hmac_key', '%env(default::ALTCHA_HMAC_KEY)%');
 
         // ALTCHA-Konfiguration als Parameter speichern
         $container->setParameter('con2net.antispam.altcha.max_number', $config['altcha']['max_number']);
