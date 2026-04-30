@@ -17,6 +17,7 @@ services:
       $hmacKey: '%env(default::ALTCHA_HMAC_KEY)%'
       $logger: '@logger'
       $loggingHelper: '@con2net.antispam.logging_helper'
+      $algorithmName: '%con2net.antispam.altcha.algorithm%'
     public: true
     autowire: false
 
@@ -48,7 +49,7 @@ services:
     public: true
     autowire: false
 
-  # Form Load Listener (MIT expliziter Hook-Registrierung für Contao 5.3)
+  # Form Load Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\FormLoadListener:
     arguments:
       $requestStack: '@request_stack'

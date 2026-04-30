@@ -1,5 +1,5 @@
 <?php
-// File: vendor/con2net/contao-anti-spam-form-bundle/src/DependencyInjection/Configuration.php
+// File: src/DependencyInjection/Configuration.php
 
 declare(strict_types=1);
 
@@ -17,7 +17,6 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-            // ALTCHA Konfiguration (UNVERÄNDERT!)
             ->arrayNode('altcha')
             ->addDefaultsIfNotSet()
             ->children()
@@ -25,26 +24,34 @@ class Configuration implements ConfigurationInterface
             ->defaultValue(100000)
             ->min(1000)
             ->max(1000000)
-            ->info('Maximum number for the challenge (higher = harder)')
+            ->info('Challenge difficulty (higher = harder for bots, slower for users). Maps to PBKDF2 iterations for pbkdf2/* algorithms.')
             ->end()
             ->integerNode('salt_length')
             ->defaultValue(16)
             ->min(8)
             ->max(32)
-            ->info('Length of the salt (16 = 128 Bit entropy, recommended)')
+            ->info('Salt length in characters (16 = 128 bit entropy). Only used for legacy SHA-256/384/512 algorithms, ignored for pbkdf2/argon2id/scrypt.')
             ->end()
             ->scalarNode('algorithm')
-            ->defaultValue('SHA-256')
+            ->defaultValue('pbkdf2')
             ->validate()
-            ->ifNotInArray(['SHA-256', 'SHA-384', 'SHA-512'])
-            ->thenInvalid('Invalid algorithm %s')
+            ->ifNotInArray([
+                'pbkdf2',
+                'pbkdf2-sha384',
+                'pbkdf2-sha512',
+                'SHA-256',
+                'SHA-384',
+                'SHA-512',
+                'argon2id',
+                'scrypt',
+            ])
+            ->thenInvalid('Invalid algorithm "%s". Allowed: pbkdf2, pbkdf2-sha384, pbkdf2-sha512, SHA-256, SHA-384, SHA-512, argon2id, scrypt')
             ->end()
-            ->info('Hash algorithm to use')
+            ->info('Hash algorithm. pbkdf2 (default), pbkdf2-sha384, pbkdf2-sha512, argon2id, scrypt, or legacy SHA-256/384/512.')
             ->end()
             ->end()
             ->end()
 
-            // ========== IP Blacklist Konfiguration ==========
             ->arrayNode('ip_blacklist')
             ->addDefaultsIfNotSet()
             ->children()
@@ -66,7 +73,6 @@ class Configuration implements ConfigurationInterface
             ->end()
             ->end()
             ->end()
-            // =====================================================
 
             ->end();
 

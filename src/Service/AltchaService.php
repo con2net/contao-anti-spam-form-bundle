@@ -5,11 +5,23 @@ declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\Service;
 
-// V1 compatibility namespace: still available in altcha-org/altcha ^2.0.
-// Full V2 migration (PBKDF2/Argon2id) will follow in v1.2.0.
-use AltchaOrg\Altcha\V1\Altcha;
-use AltchaOrg\Altcha\V1\ChallengeOptions;
-use AltchaOrg\Altcha\V1\Hasher\Algorithm;
+use AltchaOrg\Altcha\Algorithm\Argon2id;
+use AltchaOrg\Altcha\Algorithm\DeriveKeyInterface;
+use AltchaOrg\Altcha\Algorithm\Pbkdf2;
+use AltchaOrg\Altcha\Algorithm\Scrypt;
+use AltchaOrg\Altcha\Algorithm\Sha;
+use AltchaOrg\Altcha\Algorithm\ShaAlgorithm;
+use AltchaOrg\Altcha\Altcha;
+use AltchaOrg\Altcha\Challenge;
+use AltchaOrg\Altcha\ChallengeParameters;
+use AltchaOrg\Altcha\CreateChallengeOptions;
+use AltchaOrg\Altcha\HmacAlgorithm;
+use AltchaOrg\Altcha\Payload;
+use AltchaOrg\Altcha\Solution;
+use AltchaOrg\Altcha\VerifySolutionOptions;
+use AltchaOrg\Altcha\V1\Altcha as AltchaV1;
+use AltchaOrg\Altcha\V1\ChallengeOptions as ChallengeOptionsV1;
+use AltchaOrg\Altcha\V1\Hasher\Algorithm as AlgorithmV1;
 use Contao\Database;
 use Psr\Log\LoggerInterface;
 
@@ -17,31 +29,53 @@ use Psr\Log\LoggerInterface;
  * ALTCHA Service
  *
  * Validates ALTCHA challenge responses and creates challenges.
+ * Uses altcha-org/altcha ^2.0 with support for both legacy and new algorithms.
  *
  * HMAC key priority:
  *   1. ALTCHA_HMAC_KEY in .env.local (power users, recommended for production)
  *   2. Auto-generated key stored in tl_c2n_settings (default, zero-config)
  *
+ * Algorithm config mapping:
+ *   'pbkdf2'        → PBKDF2/SHA-256 (default for new installations)
+ *   'pbkdf2-sha384' → PBKDF2/SHA-384 (stronger, slightly slower)
+ *   'pbkdf2-sha512' → PBKDF2/SHA-512 (strongest PBKDF2 variant)
+ *   'argon2id'      → Argon2id (requires ext-sodium, memory-bound)
+ *   'scrypt'        → Scrypt (requires ext-scrypt)
+ *   'SHA-256'       → SHA-256 legacy (V1 format, backwards compatible)
+ *   'SHA-384'       → SHA-384 legacy (V1 format, backwards compatible)
+ *   'SHA-512'       → SHA-512 legacy (V1 format, backwards compatible)
+ *
  * @author con2net webServices
  */
 class AltchaService
 {
-    // Bundle identifier used as namespace in tl_c2n_settings
     private const BUNDLE = 'antispam';
     private const KEY_HMAC = 'altcha_hmac_key';
+    private const LEGACY_SHA_ALGORITHMS = ['sha-256', 'sha-384', 'sha-512'];
 
-    private string $hmacKey;
+    private ?string $hmacKey;
+    private string $algorithmName;
     private ?LoggerInterface $logger;
     private ?LoggingHelper $loggingHelper;
 
     public function __construct(
         ?string $hmacKey = null,
         ?LoggerInterface $logger = null,
-        ?LoggingHelper $loggingHelper = null
+        ?LoggingHelper $loggingHelper = null,
+        string $algorithmName = 'pbkdf2'
     ) {
-        $this->hmacKey = $hmacKey ?? '';
+        $this->hmacKey = $hmacKey;
         $this->logger = $logger;
         $this->loggingHelper = $loggingHelper;
+        $this->algorithmName = $algorithmName;
+    }
+
+    /**
+     * Returns true if the configured algorithm is a legacy SHA value from V1 config.
+     */
+    private function isLegacyShaConfigure(): bool
+    {
+        return in_array(strtolower($this->algorithmName), self::LEGACY_SHA_ALGORITHMS, true);
     }
 
     /**
@@ -51,15 +85,12 @@ class AltchaService
      */
     private function getHmacKey(): string
     {
-        // 1. Manually configured key always takes precedence
         if (!empty($this->hmacKey)) {
             return $this->hmacKey;
         }
 
         try {
             $db = Database::getInstance();
-
-            // 2. Try to load existing auto-generated key from tl_c2n_settings
             $result = $db->prepare(
                 "SELECT setting_value FROM tl_c2n_settings WHERE bundle=? AND setting_key=? LIMIT 1"
             )->execute(self::BUNDLE, self::KEY_HMAC);
@@ -68,9 +99,7 @@ class AltchaService
                 return $result->setting_value;
             }
 
-            // 3. Generate new key and persist to tl_c2n_settings
             $newKey = bin2hex(random_bytes(32));
-
             $db->prepare(
                 "INSERT INTO tl_c2n_settings (bundle, setting_key, setting_value) VALUES (?, ?, ?)"
             )->execute(self::BUNDLE, self::KEY_HMAC, $newKey);
@@ -82,44 +111,221 @@ class AltchaService
             return $newKey;
 
         } catch (\Throwable $e) {
-            // Fallback: temporary key for this request only.
-            // Occurs when DB has not been migrated yet (contao:migrate not run).
             if ($this->logger) {
-                $this->logger->warning(
-                    'ALTCHA auto-key failed (run contao:migrate?): ' . $e->getMessage()
-                );
+                $this->logger->warning('ALTCHA auto-key failed (run contao:migrate?): ' . $e->getMessage());
             }
-
             return bin2hex(random_bytes(32));
         }
     }
 
     /**
-     * Validates an ALTCHA challenge response.
+     * Creates a V2 DeriveKeyInterface instance based on the configured algorithm.
      *
-     * @param string $payload Base64-encoded challenge string from form
+     * Supported algorithms:
+     *   pbkdf2        → PBKDF2/SHA-256 (default)
+     *   pbkdf2-sha384 → PBKDF2/SHA-384
+     *   pbkdf2-sha512 → PBKDF2/SHA-512
+     *   argon2id      → Argon2id (requires ext-sodium)
+     *   scrypt        → Scrypt (requires ext-scrypt)
+     *
+     * @throws \RuntimeException if a required PHP extension is missing
+     */
+    private function createV2Algorithm(): DeriveKeyInterface
+    {
+        return match(strtolower($this->algorithmName)) {
+            'pbkdf2-sha384' => new Pbkdf2(HmacAlgorithm::SHA384),
+            'pbkdf2-sha512' => new Pbkdf2(HmacAlgorithm::SHA512),
+            'argon2id'      => $this->createArgon2id(),
+            'scrypt'        => $this->createScrypt(),
+            default         => new Pbkdf2(), // pbkdf2 / SHA-256 is the default
+        };
+    }
+
+    /**
+     * Creates an Argon2id algorithm instance, checking for ext-sodium availability.
+     */
+    private function createArgon2id(): Argon2id
+    {
+        if (!extension_loaded('sodium')) {
+            throw new \RuntimeException(
+                'ALTCHA: algorithm "argon2id" requires PHP extension ext-sodium. '
+                . 'Please install it or switch to algorithm "pbkdf2" in your config.'
+            );
+        }
+        return new Argon2id();
+    }
+
+    /**
+     * Creates a Scrypt algorithm instance, checking for ext-scrypt availability.
+     */
+    private function createScrypt(): Scrypt
+    {
+        if (!extension_loaded('scrypt')) {
+            throw new \RuntimeException(
+                'ALTCHA: algorithm "scrypt" requires PHP extension ext-scrypt. '
+                . 'Please install it or switch to algorithm "pbkdf2" in your config.'
+            );
+        }
+        return new Scrypt();
+    }
+
+    /**
+     * Resolves the V1 Algorithm enum from a legacy SHA algorithm name.
+     */
+    private function resolveV1Algorithm(): AlgorithmV1
+    {
+        return match(strtoupper($this->algorithmName)) {
+            'SHA-384' => AlgorithmV1::SHA384,
+            'SHA-512' => AlgorithmV1::SHA512,
+            default   => AlgorithmV1::SHA256,
+        };
+    }
+
+    /**
+     * Resolves the correct DeriveKeyInterface from a challenge parameters algorithm string.
+     * Used during V2 payload verification to match the algorithm the challenge was created with.
+     */
+    private function resolveAlgorithmFromString(string $algorithmString): DeriveKeyInterface
+    {
+        $lower = strtolower($algorithmString);
+
+        if (str_starts_with($lower, 'argon2id')) return $this->createArgon2id();
+        if (str_starts_with($lower, 'scrypt'))   return $this->createScrypt();
+
+        if (str_starts_with($lower, 'pbkdf2')) {
+            if (str_contains($lower, 'sha-384')) return new Pbkdf2(HmacAlgorithm::SHA384);
+            if (str_contains($lower, 'sha-512')) return new Pbkdf2(HmacAlgorithm::SHA512);
+            return new Pbkdf2();
+        }
+
+        if (str_contains($lower, 'sha-384')) return new Sha(ShaAlgorithm::SHA384);
+        if (str_contains($lower, 'sha-512')) return new Sha(ShaAlgorithm::SHA512);
+
+        return new Sha();
+    }
+
+    /**
+     * Deserializes a base64-encoded JSON payload from the JS widget into a Payload object.
+     * Handles both V2 format (with 'challenge.parameters') and V1 flat format.
+     *
+     * @throws \InvalidArgumentException if the payload is malformed
+     */
+    private function deserializePayload(string $base64Payload): Payload
+    {
+        $json = base64_decode($base64Payload, strict: true);
+        if ($json === false) {
+            throw new \InvalidArgumentException('ALTCHA: payload is not valid base64.');
+        }
+
+        $data = json_decode($json, associative: true);
+        if (!is_array($data)) {
+            throw new \InvalidArgumentException('ALTCHA: payload is not valid JSON.');
+        }
+
+        // V2 format: {challenge: {parameters: {...}, signature: '...'}, solution: {...}}
+        if (isset($data['challenge']['parameters'])) {
+            if (!isset($data['solution']['counter']) || !isset($data['solution']['derivedKey'])) {
+                throw new \InvalidArgumentException('ALTCHA: V2 payload solution is missing counter or derivedKey.');
+            }
+
+            $params = ChallengeParameters::fromArray($data['challenge']['parameters']);
+            $challenge = new Challenge($params, $data['challenge']['signature'] ?? null);
+            $solution = new Solution(
+                counter: (int) $data['solution']['counter'],
+                derivedKey: (string) $data['solution']['derivedKey'],
+            );
+
+            return new Payload($challenge, $solution);
+        }
+
+        // V1 flat format: {algorithm, challenge, salt, signature, number}
+        if (isset($data['algorithm'], $data['challenge'], $data['salt'], $data['number'])) {
+            $params = new ChallengeParameters(
+                algorithm: (string) $data['algorithm'],
+                nonce: '',
+                salt: (string) $data['salt'],
+                cost: 1,
+                keyPrefix: substr((string) $data['challenge'], 0, 2),
+            );
+            $challenge = new Challenge($params, $data['signature'] ?? null);
+            $solution = new Solution(
+                counter: (int) $data['number'],
+                derivedKey: (string) $data['challenge'],
+            );
+
+            return new Payload($challenge, $solution);
+        }
+
+        throw new \InvalidArgumentException('ALTCHA: payload format not recognized (neither V1 nor V2).');
+    }
+
+    /**
+     * Validates an ALTCHA challenge response.
+     * Handles both V1 (legacy SHA) and V2 (PBKDF2/Argon2id) payload formats.
+     *
+     * @param string $base64Payload Base64-encoded JSON payload from the JS widget
      * @return bool True if valid, false if invalid or on error
      */
-    public function validate(string $payload): bool
+    public function validate(string $base64Payload): bool
     {
         try {
-            $altcha = new Altcha($this->getHmacKey());
-            $result = $altcha->verifySolution($payload);
+            $json = base64_decode($base64Payload, strict: true);
+            $data = $json ? json_decode($json, associative: true) : null;
 
-            if ($result) {
-                if ($this->logger) {
-                    $this->logger->debug('ALTCHA validation successful', [
-                        'payload_length' => strlen($payload)
-                    ]);
+            // V1 flat format → use V1 lib
+            if (is_array($data) && isset($data['algorithm'], $data['challenge'], $data['number'])
+                && !isset($data['challenge']['parameters'])
+            ) {
+                $v1 = new AltchaV1($this->getHmacKey());
+                $result = $v1->verifySolution($base64Payload);
+
+                if ($result) {
+                    if ($this->loggingHelper) {
+                        $this->loggingHelper->logInfo(
+                            'ALTCHA validated successfully (V1/' . strtoupper($data['algorithm']) . ')',
+                            __METHOD__
+                        );
+                    }
+                    return true;
                 }
 
+                if ($this->loggingHelper) {
+                    $this->loggingHelper->logError('ALTCHA FAILED: Invalid V1 solution', __METHOD__);
+                }
+                return false;
+            }
+
+            // V2 format → use V2 lib
+            $payload = $this->deserializePayload($base64Payload);
+            $algorithm = $this->resolveAlgorithmFromString(
+                $payload->challenge->parameters->algorithm
+            );
+
+            $altcha = new Altcha(hmacSignatureSecret: $this->getHmacKey());
+            $result = $altcha->verifySolution(new VerifySolutionOptions(
+                payload: $payload,
+                algorithm: $algorithm,
+            ));
+
+            if ($result->verified) {
+                if ($this->loggingHelper) {
+                    $this->loggingHelper->logInfo(
+                        'ALTCHA validated successfully (' . $payload->challenge->parameters->algorithm . ')',
+                        __METHOD__
+                    );
+                }
                 return true;
             }
 
-            if ($this->logger) {
-                $this->logger->debug('ALTCHA validation failed - invalid solution');
+            if ($this->loggingHelper) {
+                $this->loggingHelper->logError('ALTCHA FAILED: Invalid solution', __METHOD__);
             }
+            return false;
 
+        } catch (\InvalidArgumentException $e) {
+            if ($this->loggingHelper) {
+                $this->loggingHelper->logError('ALTCHA FAILED: ' . $e->getMessage(), __METHOD__);
+            }
             return false;
 
         } catch (\Exception $e) {
@@ -128,14 +334,12 @@ class AltchaService
                     'exception' => get_class($e)
                 ]);
             }
-
             if ($this->loggingHelper) {
                 $this->loggingHelper->logError(
                     'ALTCHA validation error: ' . $e->getMessage(),
                     __METHOD__
                 );
             }
-
             return false;
         }
     }
@@ -143,68 +347,85 @@ class AltchaService
     /**
      * Creates an ALTCHA challenge.
      *
-     * @param int $maxNumber Maximum number for challenge difficulty
-     * @param int $saltLength Salt length in characters (8-32)
-     * @param string $algorithmName Hash algorithm ('SHA-256', 'SHA-384', 'SHA-512')
+     * Legacy SHA (SHA-256/384/512): returns V1 flat format for backwards compatibility.
+     * PBKDF2/Argon2id/Scrypt: returns V2 format as expected by the V3 widget.
+     *
+     * @param int $maxNumber Challenge difficulty (maps to PBKDF2 iterations / SHA max number)
+     * @param int $saltLength Salt length (only used for legacy SHA algorithms)
+     * @param string $algorithmName NOT USED - algorithm is set via constructor/config
      * @param int|null $expires NOT USED - kept for backwards compatibility
-     * @return array Challenge data as array, empty array on error
+     * @return array Challenge data as array for JSON output, empty array on error
      */
     public function createChallenge(
         int $maxNumber = 100000,
         int $saltLength = 16,
-        string $algorithmName = 'SHA-256',
+        string $algorithmName = 'pbkdf2',
         ?int $expires = null
     ): array {
         try {
-            $altcha = new Altcha($this->getHmacKey());
+            // Legacy SHA path: V1 flat format for backwards compatibility
+            if ($this->isLegacyShaConfigure()) {
+                $v1 = new AltchaV1($this->getHmacKey());
+                $v1Options = new ChallengeOptionsV1(
+                    algorithm: $this->resolveV1Algorithm(),
+                    maxNumber: $maxNumber,
+                    saltLength: $saltLength,
+                );
+                $v1Challenge = $v1->createChallenge($v1Options);
 
-            $algorithm = match(strtoupper($algorithmName)) {
-                'SHA-384' => Algorithm::SHA384,
-                'SHA-512' => Algorithm::SHA512,
-                default   => Algorithm::SHA256,
-            };
+                if ($this->logger) {
+                    $this->logger->debug('ALTCHA challenge created (V1/SHA legacy)', [
+                        'algorithm' => $this->algorithmName,
+                        'maxNumber' => $maxNumber,
+                    ]);
+                }
 
-            $options = new ChallengeOptions(
+                return [
+                    'algorithm' => $v1Challenge->algorithm,
+                    'challenge' => $v1Challenge->challenge,
+                    'salt'      => $v1Challenge->salt,
+                    'signature' => $v1Challenge->signature,
+                ];
+            }
+
+            // V2 path: PBKDF2/Argon2id/Scrypt
+            $algorithm = $this->createV2Algorithm();
+            $altcha = new Altcha(hmacSignatureSecret: $this->getHmacKey());
+
+            $options = new CreateChallengeOptions(
                 algorithm: $algorithm,
-                maxNumber: $maxNumber,
-                saltLength: $saltLength
+                cost: $maxNumber,
             );
 
             $challenge = $altcha->createChallenge($options);
 
-            $result = [
-                'algorithm' => $challenge->algorithm->value ?? 'SHA-256',
-                'challenge' => $challenge->challenge ?? '',
-                'salt'      => $challenge->salt ?? '',
-                'signature' => $challenge->signature ?? '',
-            ];
-
             if ($this->logger) {
-                $this->logger->debug('ALTCHA challenge created', [
-                    'algorithm' => $algorithmName,
-                    'maxNumber' => $maxNumber,
-                    'saltLength' => $saltLength
+                $this->logger->debug('ALTCHA challenge created (V2)', [
+                    'algorithm' => $algorithm->getAlgorithmName(),
+                    'cost'      => $maxNumber,
                 ]);
             }
 
-            return $result;
+            // V2 format: {parameters: {...}, signature: '...'} + flat fields for widget
+            return [
+                'parameters' => $challenge->parameters->toArray(),
+                'signature'  => $challenge->signature,
+                'salt'       => $challenge->parameters->salt,
+                'algorithm'  => $challenge->parameters->algorithm,
+            ];
 
         } catch (\Exception $e) {
             if ($this->logger) {
                 $this->logger->error('ALTCHA challenge creation error: ' . $e->getMessage(), [
                     'exception' => get_class($e),
-                    'maxNumber' => $maxNumber,
-                    'saltLength' => $saltLength
                 ]);
             }
-
             if ($this->loggingHelper) {
                 $this->loggingHelper->logError(
                     'ALTCHA challenge creation error: ' . $e->getMessage(),
                     __METHOD__
                 );
             }
-
             return [];
         }
     }

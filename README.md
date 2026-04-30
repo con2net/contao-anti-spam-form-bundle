@@ -58,23 +58,43 @@ Das Bundle kombiniert **7 verschiedene Schutzebenen**, die einzeln aktiviert und
 ```bash
 composer require con2net/contao-anti-spam-form-bundle
 ```
-Datenbank aktualisieren
+Datenbank aktualisieren:
 ```bash
 php vendor/bin/contao-console contao:migrate
 ```
 
+Das war's. Das Bundle funktioniert direkt nach der Installation **ohne weitere Konfiguration**.
 
 ---
 
 ## Konfiguration
 
-### 1. ALTCHA HMAC-Key generieren
+### Zero-Config (empfohlen für die meisten Installationen)
 
-Der HMAC-Key ist essentiell für die ALTCHA Challenge-Erstellung und **muss** geheim bleiben!
+Nach der Installation und Datenbankaktualisierung ist das Bundle sofort einsatzbereit:
+
+- **HMAC-Key wird automatisch generiert** und in der Datenbank gespeichert (Tabelle `tl_c2n_settings`). Kein manuelles Setzen erforderlich.
+- **PBKDF2/SHA-256** wird als Standard-Algorithmus verwendet – sicher und ohne zusätzliche Abhängigkeiten.
+- Alle anderen Einstellungen haben sinnvolle Standardwerte.
+
+### Optionaler eigener HMAC-Key (.env.local)
+
+Für Produktionsumgebungen, in denen du den HMAC-Key selbst verwalten möchtest (z.B. für Secrets Management oder manuelle Key-Rotation), kannst du ihn in der `.env.local` setzen:
+
+```bash
+###> con2net/contao-anti-spam-form-bundle ###
+ALTCHA_HMAC_KEY="DEIN-GENERIERTER-KEY-HIER"
+###< con2net/contao-anti-spam-form-bundle ###
+```
 
 **Key generieren (Linux/Mac):**
 ```bash
 openssl rand -base64 32
+```
+
+**Key generieren (PHP, plattformunabhängig):**
+```bash
+php -r "echo bin2hex(random_bytes(32));"
 ```
 
 **Key generieren (Windows PowerShell):**
@@ -84,68 +104,63 @@ $bytes = New-Object byte[] 32
 [Convert]::ToBase64String($bytes)
 ```
 
-**Ausgabe z.B.:** `K8vJ9mNpQ2xRzT4yH6wL3eFgD1sA5bC7oU0iM9nV2kX=`
+Ein manuell gesetzter Key hat immer Vorrang vor dem automatisch generierten.
 
-### 2. Key in .env.local Datei anlegen
-Ergänze in der .env.local Datei im Root-Verzeichnis deiner Contao-Installation (dort wo auch die composer.json liegt, nicht im public/-Unterordner!):
-```bash
-###> con2net/contao-anti-spam-form-bundle ###
-ALTCHA_HMAC_KEY="DEIN-GENERIERTER-KEY-HIER"
-###< con2net/contao-anti-spam-form-bundle ###
-```
-Hinweis: Solltest du noch keine .env.local Datei haben, lege diese bitte an. Falls auch keine .env vorhanden ist, lege zusätzlich eine leere .env Datei direkt daneben ins Root-Verzeichnis.
+> **Hinweis für Shared Hosting:** Die `.env.local` gehört ins Root-Verzeichnis deiner Contao-Installation – dort wo auch die `composer.json` liegt, **nicht** in den Webroot (`public/` oder `web/`). Beispiel: Webroot ist `./client_1234/public_html/public/`, dann gehört die `.env.local` nach `./client_1234/public_html/`. Falls noch keine .env vorhanden ist, lege zusätzlich eine leere .env Datei direkt daneben ins gleiche Verzeichnis.
 
+> **Updater von v1.0.x:** Wenn du bisher `ALTCHA_HMAC_KEY` in der `.env.local` hattest und auf den automatisch generierten Key wechseln möchtest, kannst du die Zeile einfach auskommentieren oder entfernen. Das Bundle generiert dann beim nächsten Seitenaufruf automatisch einen neuen Key.
 
-Wichtig für Shared Hosting: Das Root-Verzeichnis ist typischerweise eine Ebene oberhalb des Webroots. Beispiel: Webroot ist ./client_1234/public_html/public/, dann gehört die .env.local nach ./client_1234/public_html/. 
+### Optionale ALTCHA-Konfiguration (config.yml)
 
-### 3. ALTCHA Konfiguration (Optional)
-
-### Standard-Werte (ohne config.yml)
-
-Das Bundle funktioniert **ohne zusätzliche Konfiguration** mit folgenden Default-Werten:
-
-```yaml
-# Diese Werte werden automatisch verwendet, wenn keine config.yml vorhanden ist:
-ALTCHA:
-  max_number: 100000     # Medium Difficulty (gut für die meisten Websites)
-  salt_length: 16        # 128 Bit Entropie (empfohlener Sicherheitsstandard)
-  algorithm: 'SHA-256'   # Schnell und sicher
-```
-
-## Eigene Werte konfigurieren (optional)
-
-Falls du die ALTCHA-Schwierigkeit anpassen möchtest, kannst du optional diese Konfiguration in deine `config/config.yml` einfügen:
+Das Bundle funktioniert vollständig **ohne** Einträge in der `config.yml`. Falls du die Schwierigkeit oder den Algorithmus anpassen möchtest:
 
 ```yaml
 # config/config.yml
 contao_anti_spam_form:
   altcha:
-    # Challenge difficulty (höher = schwerer für Bots, langsamer für User)
+    # Challenge-Schwierigkeit (höher = schwerer für Bots, langsamer für User)
     # Easy: 10000, Normal: 50000, Medium: 100000, Hard: 250000, Very Hard: 500000
     max_number: 100000
-    
-    # Salt length (8-32)
-    # 16 = 128 Bit Entropie (empfohlen für CAPTCHA)
+
+    # Salt-Länge (8-32 Zeichen)
+    # Hinweis: Wird nur bei Legacy-Algorithmen (SHA-256/384/512) verwendet.
+    # Bei PBKDF2, Argon2id und Scrypt wird dieser Wert ignoriert.
     salt_length: 16
-    
-    # Hash algorithm: Aktuell nur SHA-256 unterstützt!
-    # SHA-384 und SHA-512 führen zu Fehlern und werden in einer späteren Version ergänzt.
-    algorithm: 'SHA-256'
+
+    # Algorithmus (siehe Tabelle unten)
+    algorithm: 'pbkdf2'
 ```
 
-## Schwierigkeitsgrade (in etwa ;-))
+> **Updater von v1.0.x:** Wenn du bisher `algorithm: 'SHA-256'` in deiner `config.yml` hattest, funktioniert das weiterhin ohne Änderungen. Du kannst den Eintrag aber entfernen, um den neuen PBKDF2-Standard zu nutzen – oder auf `pbkdf2-sha384` / `pbkdf2-sha512` upgraden für mehr Sicherheit.
 
-| max_number | Schwierigkeit | Durchschnittliche Lösungszeit | Empfohlen für         |
-|------------|---------------|-------------------------------|-----------------------|
-| 10.000     | Very Easy     | < 1 Sekunde                   | Testing               |
+#### Verfügbare Algorithmen
+
+| Algorithmus | Internes Format | Sicherheit | Empfehlung |
+|-------------|-----------------|------------|------------|
+| `pbkdf2` | PBKDF2/SHA-256 | ★★★★☆ | **Standard für neue Installationen** |
+| `pbkdf2-sha384` | PBKDF2/SHA-384 | ★★★★★ | Erhöhte Sicherheit |
+| `pbkdf2-sha512` | PBKDF2/SHA-512 | ★★★★★ | Maximale PBKDF2-Sicherheit |
+| `SHA-256` | SHA-256 (Legacy) | ★★☆☆☆ | Bestehende Installationen (Backwards-Compat) |
+| `SHA-384` | SHA-384 (Legacy) | ★★★☆☆ | Bestehende Installationen |
+| `SHA-512` | SHA-512 (Legacy) | ★★★☆☆ | Bestehende Installationen |
+| `argon2id` | Argon2id | ★★★★★ | Vorbereitet – kommt in einer der nächsten Versionen |
+| `scrypt` | Scrypt | ★★★★★ | Vorbereitet – kommt in einer der nächsten Versionen |
+
+> **Hinweis zu Legacy-Algorithmen (SHA-256/384/512):** Diese nutzen das ältere V1 ALTCHA-Format und sind ausschließlich für Backwards-Kompatibilität mit bestehenden Installationen vorgesehen. Für neue Installationen sind PBKDF2-Varianten empfohlen.
+
+#### Schwierigkeitsgrade (so in etwa ;-))
+
+| max_number | Schwierigkeit | Durchschnittliche Lösungszeit | Empfohlen für |
+|------------|---------------|-------------------------------|---------------|
+| 10.000     | Very Easy     | < 1 Sekunde                   | Testing |
 | 50.000     | Easy          | 1-2 Sekunden                  | Hoher Traffic / Mobile |
 | 100.000    | Medium        | 2-4 Sekunden                  | **Standard-Websites** |
 | 250.000    | Hard          | 5-10 Sekunden                 | Hochsichere Formulare |
-| 500.000    | Very Hard     | 10-20 Sekunden                | Maximale Sicherheit   |
+| 500.000    | Very Hard     | 10-20 Sekunden                | Maximale Sicherheit |
 
-## IP-Blacklist Konfiguration (Optional)
+> **Hinweis zu PBKDF2-SHA-384/512:** Bei stärkeren Algorithmen kann die Lösungszeit etwas länger sein. Ggf. `max_number` entsprechend anpassen.
 
-Die IP-Blacklist (StopForumSpam.com) funktioniert ebenfalls mit Defaults. Optional kannst du konfigurieren:
+### Optionale IP-Blacklist Konfiguration
 
 ```yaml
 contao_anti_spam_form:
@@ -157,6 +172,7 @@ contao_anti_spam_form:
       - '192.168.1.0/24'    # Lokales Netzwerk
       # - '10.0.0.0/8'      # Firmen-VPN (Beispiel)
 ```
+
 ---
 
 ## Verwendung
@@ -243,7 +259,7 @@ Sucht nach typischen SPAM-Wörtern.
 - **SPAM-Schwellwert:** 50 Punkte (Standard)
 - Jeder Test addiert Punkte
 - Ab Schwellwert = SPAM erkannt
-- **Empfehlung:** Beginne mit 50, passe nach Bedarf an (höher = strenger)
+- **Empfehlung:** Beginne mit 50, passe nach Bedarf an (höher = weniger streng)
 
 ### Honeypot-Felder hinzufügen
 
@@ -257,7 +273,7 @@ Wähle einen der 3 Honeypot-Typen:
 
 **Feldname:** Beliebig (z.B. `local_office_address`, `business_role`)
 
-Empfehlenswert sind Feldnamen, die eine gewisse Verlockung auf Bots ausüben. Nicht zu "üblich" da ggf. AutoComplete-Mechanismen bei echten Clients dazu führen, dass das Feld dann trotzdem ausgefüllt wird.
+Empfehlenswert sind Feldnamen, die eine gewisse Verlockung auf Bots ausüben. Nicht zu "üblich" – AutoComplete-Mechanismen in Browsern könnten das Feld sonst bei echten Nutzern vorausfüllen.
 
 **Empfohlene Labels (unauffällig):**
 - "Position" / "Business Role"
@@ -270,7 +286,7 @@ Empfehlenswert sind Feldnamen, die eine gewisse Verlockung auf Bots ausüben. Ni
 
 1. Feldtyp: **ALTCHA Anti-SPAM Widget**
 2. Feldname: `captcha` (empfohlen)
-3. Fertig! (Konfiguration erfolgt in `config.yml`)
+3. Fertig! Das Widget konfiguriert sich automatisch.
 
 ### E-Mail-Benachrichtigung
 
@@ -283,8 +299,8 @@ In deiner E-Mail-Benachrichtigung (Notification Center oder Contao Standard) ste
 
 **Ergebnis:**
 - Normal: `Neue Anfrage über Kontaktformular`
-- SPAM: `*** SPAM *** Neue Anfrage über Kontaktformular`
-
+- SPAM: `*** SPAM *** Neue Anfrage über Kontaktformular` 
+ 
 So kannst du SPAM-Nachrichten im Posteingang sofort erkennen und z.B. automatisch in einen Spam-Ordner verschieben lassen.
 
 ---
@@ -300,7 +316,7 @@ Hier findest du alle Anti-SPAM Ereignisse:
 - **Rot:** SPAM erkannt, Formular blockiert
 - **Normal:** Prüfung erfolgreich, kein SPAM / Informationen
 
-**Debug-Modus aktivieren** für detaillierte Logs (eher für Troubleshooting/Analyse):
+**Debug-Modus aktivieren** für detaillierte Logs:
 - Zeit-Berechnungen
 - Feldmappings
 - Content-Analyse Scores
@@ -311,21 +327,21 @@ Hier findest du alle Anti-SPAM Ereignisse:
 ## Troubleshooting
 
 ### .env.local wird nicht erkannt
-Die .env.local muss im Contao-Root-Verzeichnis liegen – dort wo die composer.json ist. Bei typischen Shared-Hosting-Setups liegt der Webroot in einem Unterordner (public/ oder web/). Die .env.local gehört eine Ebene darüber, nicht in den Webroot.
-Nach dem Anlegen der Datei unbedingt den Cache leeren:
-bashphp vendor/bin/contao-console cache:clear
+
+Die `.env.local` muss im Contao-Root-Verzeichnis liegen – dort wo die `composer.json` ist. Bei typischen Shared-Hosting-Setups liegt der Webroot in einem Unterordner (`public/` oder `web/`). Die `.env.local` gehört eine Ebene darüber, nicht in den Webroot. Nach dem Anlegen der Datei unbedingt den Cache leeren:
+```bash
+php vendor/bin/contao-console cache:clear
+```
 
 ### ALTCHA wird nicht angezeigt
 
-**Prüfe:**
-1. HMAC-Key in `.env.local` gesetzt?
-2. ALTCHA-Formularfeld hinzugefügt?
-3. Cache geleert? (`rm -rf var/cache/*` bzw. `php vendor/bin/contao-console cache:clear`
-4. Browser-Console: JavaScript-Fehler?
+1. ALTCHA-Formularfeld hinzugefügt?
+2. Cache geleert? (`php vendor/bin/contao-console cache:clear`)
+3. Browser-Console: JavaScript-Fehler?
+4. Contao-Manager: Datenbank aktualisiert? (bzw.`contao:migrate`)
 
 ### Content-Analyse funktioniert nicht
 
-**Prüfe:**
 1. Content-Analyse aktiviert?
 2. Mindestens ein Test aktiviert?
 3. Felder ausgewählt?
@@ -333,7 +349,6 @@ bashphp vendor/bin/contao-console cache:clear
 
 ### Legitime Anfragen werden als SPAM erkannt
 
-**Lösungen:**
 1. **Schwellwert erhöhen** (z.B. von 50 auf 70)
 2. **Tests deaktivieren** die zu streng sind
 3. **Felder anpassen** (z.B. "Website"-Feld vom URL-Check ausschließen)
@@ -341,7 +356,6 @@ bashphp vendor/bin/contao-console cache:clear
 
 ### SPAM kommt trotzdem durch
 
-**Lösungen:**
 1. **Schwellwert senken** (z.B. von 50 auf 30)
 2. **Mehr Tests aktivieren**
 3. **IP-Blacklist aktivieren**
@@ -355,51 +369,51 @@ bashphp vendor/bin/contao-console cache:clear
 ### Systemanforderungen
 
 - PHP 8.2 oder höher
-- Contao 4.13 oder höher / Contao 5.3 LTS
-- Symfony 5.4 / 6.0 / 7.0
-- ALTCHA Library 1.2+
-
-### Hook-Prioritäten
-```
-compileFormFields (Priority 100):
-  -> Timestamp in Session speichern
-
-prepareFormData (Priority 100):
-  -> Multi-Layer SPAM-Checks
-  -> Bei SPAM: Flag setzen
-```
+- Contao 4.13 LTS oder Contao 5.3 LTS
+- Symfony 5.4 / 6.x / 7.x
 
 ### Architektur
+
 ```
 Services:
-  - AltchaService (Challenge-Erstellung + Validierung)
-  - IpBlacklistService (StopForumSpam.com API)
-  - ContentAnalysisService (Pattern-Matching)
-  - LoggingHelper (Unified Logging)
+  - AltchaService         (Challenge-Erstellung + Validierung, V1/V2)
+  - IpBlacklistService    (StopForumSpam.com API)
+  - ContentAnalysisService(Pattern-Matching)
+  - LoggingHelper         (Unified Logging)
 
 Listener:
-  - FormLoadListener (Timestamp)
-  - AntiSpamFormListener (SPAM-Checks)
-  - PageListener (CSS/JS)
+  - FormLoadListener      (Session-Timestamp)
+  - AntiSpamFormListener  (Multi-Layer SPAM-Checks)
+  - PageListener          (CSS/JS Assets)
 
 Widgets:
-  - AltchaFormField (Captcha)
-  - HoneypotField (Text)
+  - AltchaFormField       (ALTCHA Captcha)
+  - HoneypotField         (Text)
   - HoneypotTextareaField (Textarea)
   - HoneypotCheckboxField (Checkbox)
+
+Datenbank:
+  - tl_c2n_settings       (Gemeinsame Settings-Tabelle für con2net Bundles,
+                            speichert den automatisch generierten HMAC-Key)
 ```
+
+---
+
+## Changelog
+
+Siehe [CHANGELOG.md](CHANGELOG.md) für eine vollständige Versionshistorie.
 
 ---
 
 ## Lizenz
 
-MIT License - siehe [LICENSE](LICENSE) Datei
+MIT License – siehe [LICENSE](LICENSE)
 
 ---
 
 ## Credits
 
-- **ALTCHA Library:** https://github.com/altcha-org/altcha-lib-php
+- **ALTCHA:** https://altcha.org / https://github.com/altcha-org/altcha-lib-php
 - **StopForumSpam:** https://www.stopforumspam.com/
 - **Contao CMS:** https://contao.org/
 
@@ -411,7 +425,5 @@ MIT License - siehe [LICENSE](LICENSE) Datei
 **Website:** https://www.connect2net.de
 
 ---
-
-**Hinweis:** Dieses Bundle wird ohne Gewährleistung bereitgestellt. Teste es gründlich vor dem produktiven Einsatz und passe die Einstellungen an deine Bedürfnisse an.
 
 Entwickelt mit ❤️ in Norddeutschland von **connect2Net webServices** / Stefan Meise
