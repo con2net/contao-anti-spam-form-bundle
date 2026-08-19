@@ -12,7 +12,6 @@ use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\Form;
 use Contao\FormModel;
 use Contao\System;
-use Contao\Controller;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -134,7 +133,7 @@ class AntiSpamFormListener
             );
 
             if ($blockSpam) {
-                $this->blockSpam($formId);
+                $this->blockSpam($form, $formId);
             }
 
             return;
@@ -161,10 +160,17 @@ class AntiSpamFormListener
             );
 
             if ($blockSpam) {
-                $this->blockSpam($formId);
+                $this->blockSpam($form, $formId);
             }
 
-            $session->remove($sessionKey);
+            if ($blockSpam) {
+                // Neuer Startzeitpunkt für einen erneuten Formularversuch
+                $session->set($sessionKey, time());
+            } else {
+                // Bei nur markiertem Spam wird der Vorgang regulär abgeschlossen
+                $session->remove($sessionKey);
+            }
+
             return;
         }
 
@@ -201,7 +207,7 @@ class AntiSpamFormListener
                     );
 
                     if ($blockSpam) {
-                        $this->blockSpam($formId);
+                        $this->blockSpam($form, $formId);
                     }
 
                     return;
@@ -251,7 +257,7 @@ class AntiSpamFormListener
                         );
 
                         if ($blockSpam) {
-                            $this->blockSpam($formId);
+                            $this->blockSpam($form, $formId);
                         }
 
                         return;
@@ -393,7 +399,7 @@ class AntiSpamFormListener
                     );
 
                     if ($blockSpam) {
-                        $this->blockSpam($formId);
+                        $this->blockSpam($form, $formId);
                     }
 
                     return;
@@ -441,7 +447,7 @@ class AntiSpamFormListener
             );
 
             if ($blockSpam) {
-                $this->blockSpam($formId);
+                $this->blockSpam($form, $formId);
             }
 
             return;
@@ -480,12 +486,22 @@ class AntiSpamFormListener
                     $this->markAsSpam($submittedData, $honeypotField, $spamMarker, $formId);
 
                     if ($blockSpam) {
-                        $this->blockSpam($formId);
+                        $this->blockSpam($form, $formId);
                     } elseif ($debugMode) {
-                        $this->loggingHelper->logInfo('SPAM MARKED: E-Mail will be sent with SPAM marker', __METHOD__);
+                        $this->loggingHelper->logInfo(
+                            'SPAM MARKED: E-Mail will be sent with SPAM marker',
+                            __METHOD__
+                        );
                     }
 
-                    $session->remove($sessionKey);
+                    if ($blockSpam) {
+                        // Neuer Startzeitpunkt für einen erneuten Formularversuch
+                        $session->set($sessionKey, time());
+                    } else {
+                        // Bei nur markiertem Spam wird der Vorgang regulär abgeschlossen
+                        $session->remove($sessionKey);
+                    }
+
                     return;
                 }
             }
@@ -508,10 +524,17 @@ class AntiSpamFormListener
             );
 
             if ($blockSpam) {
-                $this->blockSpam($formId);
+                $this->blockSpam($form, $formId);
             }
 
-            $session->remove($sessionKey);
+            if ($blockSpam) {
+                // Neuer Startzeitpunkt für einen erneuten Formularversuch
+                $session->set($sessionKey, time());
+            } else {
+                // Bei nur markiertem Spam wird der Vorgang regulär abgeschlossen
+                $session->remove($sessionKey);
+            }
+
             return;
         }
 
@@ -532,7 +555,7 @@ class AntiSpamFormListener
             );
 
             if ($blockSpam) {
-                $this->blockSpam($formId);
+                $this->blockSpam($form, $formId);
             }
 
             $session->remove($sessionKey);
@@ -653,21 +676,28 @@ class AntiSpamFormListener
     /**
      * Blockiert SPAM komplett (keine E-Mail)
      */
-    private function blockSpam(int $formId): void
+    private function blockSpam(Form $form, int $formId): void
     {
-        $this->loggingHelper->logError('SPAM BLOCKED: Redirecting to prevent form processing', __METHOD__);
+        $this->loggingHelper->logError(
+            'SPAM BLOCKED: E-Mail will NOT be sent',
+            __METHOD__
+        );
 
-        // Session aufräumen
+        $form->addError(
+            $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
+                ?? 'Your request could not be processed. Please try again later.'
+        );
+
         $request = $this->requestStack->getCurrentRequest();
-        if ($request && $request->hasSession()) {
-            $request->getSession()->remove('c2n_form_timestamp_' . $formId);
-        }
 
-        // Natives header() + exit() – kann NICHT von try-catch gefangen werden.
-        // Controller::redirect() wirft intern eine Exception die in Contao 5
-        // von umgebenden try-catch Blöcken abgefangen werden kann.
-        $uri = $request ? $request->getUri() : '/';
-        header('Location: ' . $uri, true, 302);
-        exit();
+        if ($request && $request->hasSession()) {
+            $session = $request->getSession();
+
+            // Neuer Startzeitpunkt für einen erneuten Versuch
+            $session->set(
+                'c2n_form_timestamp_' . $formId,
+                time()
+            );
+        }
     }
 }
