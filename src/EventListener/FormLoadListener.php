@@ -36,13 +36,7 @@ class FormLoadListener
      */
     public function __invoke(array $fields, string $formId, Form $form): array
     {
-        // FIX: In Contao 5.3 kann formId "auto_form_1" sein (String mit Prefix)
-        // Wir müssen die Nummer extrahieren!
-        if (strpos($formId, 'auto_form_') === 0) {
-            $formIdInt = (int)str_replace('auto_form_', '', $formId);
-        } else {
-            $formIdInt = (int)$formId;
-        }
+        $formIdInt = (int) $form->id;
 
         // Formular-Konfiguration laden
         $formModel = FormModel::findByPk($formIdInt);
