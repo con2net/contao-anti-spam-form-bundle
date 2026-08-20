@@ -34,6 +34,11 @@ $GLOBALS['TL_LANG']['tl_form']['c2n_block_spam'] = [
     'Wenn aktiviert, werden als SPAM erkannte Formulare NICHT per E-Mail versendet.'
 ];
 
+$GLOBALS['TL_LANG']['tl_form']['c2n_abuse_email'] = [
+    'Abuse-E-Mail-Adresse',
+    'Wird nur genutzt, wenn "SPAM-Nachrichten nicht senden" NICHT aktiviert ist. Ist dieses Feld ausgefüllt, gehen als SPAM markierte Formular-Benachrichtigungen (auch über das NotificationCenter) ausschließlich an diese Adresse statt an die konfigurierten Empfänger. Leer lassen für das bisherige Verhalten.'
+];
+
 $GLOBALS['TL_LANG']['tl_form']['c2n_enable_altcha'] = [
     'ALTCHA Captcha aktivieren',
     'Aktiviert ein modernes, barrierefreies Captcha-System. WICHTIG: Fügen Sie dem Formular ein "ALTCHA" Formularfeld hinzu! Die Konfiguration (Schwierigkeit, Algorithmus, etc.) erfolgt in der config.yml.'

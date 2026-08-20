@@ -67,7 +67,29 @@ $GLOBALS['TL_LANG']['XPL']['c2n_honeypot'] = [
         4. Menschen sehen das Feld nicht → bleibt leer<br><br>
         
         <strong>Hinweis:</strong><br>
-        Fügen Sie mindestens EIN Honeypot-Feld zu Ihrem Formular hinzu, 
+        Fügen Sie mindestens EIN Honeypot-Feld zu Ihrem Formular hinzu,
         damit der Anti-SPAM Schutz funktioniert!'
+    ]
+];
+
+$GLOBALS['TL_LANG']['XPL']['c2n_block_spam'] = [
+    [
+        'SPAM-Nachrichten nicht senden vs. Abuse-E-Mail',
+        '<strong>SPAM-Nachrichten nicht senden (dieser Haken):</strong><br>
+        Ist diese Option aktiviert, wird eine als SPAM erkannte Formular-Einsendung
+        vollständig blockiert. Es geht KEINE Benachrichtigung raus - weder an die normalen
+        Empfänger noch an eine Abuse-Adresse.<br><br>
+
+        <strong>Abuse-E-Mail (nur wirksam wenn dieser Haken NICHT gesetzt ist):</strong><br>
+        SPAM wird weiterhin nur markiert (siehe SPAM-Markierung), aber alle
+        Benachrichtigungen - auch über das NotificationCenter - gehen dann ausschließlich
+        an diese Abuse-Adresse statt an die ursprünglich konfigurierten Empfänger.
+        So sehen Ihre regulären Empfänger keine SPAM-Mails mehr, ohne dass die
+        Einsendung komplett verloren geht.<br><br>
+
+        <strong>Wichtig:</strong><br>
+        Ist das Abuse-E-Mail-Feld leer, ändert sich am bisherigen Verhalten NICHTS -
+        SPAM-markierte Mails gehen wie gewohnt an die normalen Empfänger. Keine
+        Migration nötig, bestehende Formulare funktionieren unverändert weiter.'
     ]
 ];

@@ -18,7 +18,7 @@ PaletteManipulator::create()
 // Sub-Palette wenn Anti-SPAM aktiviert
 $GLOBALS['TL_DCA']['tl_form']['palettes']['__selector__'][] = 'c2n_enable_antispam';
 $GLOBALS['TL_DCA']['tl_form']['subpalettes']['c2n_enable_antispam'] =
-    'c2n_min_submit_time,c2n_max_submit_time,c2n_spam_prefix,c2n_block_spam,c2n_enable_altcha,c2n_enable_ip_blacklist,c2n_debug';
+    'c2n_min_submit_time,c2n_max_submit_time,c2n_spam_prefix,c2n_block_spam,c2n_abuse_email,c2n_enable_altcha,c2n_enable_ip_blacklist,c2n_debug';
 
 // ===== Palette für Content-Analyse =====
 PaletteManipulator::create()
@@ -135,12 +135,27 @@ $GLOBALS['TL_DCA']['tl_form']['fields']['c2n_spam_prefix'] = [
 
 $GLOBALS['TL_DCA']['tl_form']['fields']['c2n_block_spam'] = [
     'label' => &$GLOBALS['TL_LANG']['tl_form']['c2n_block_spam'],
+    'explanation' => 'c2n_block_spam',
     'exclude' => true,
     'inputType' => 'checkbox',
     'eval' => [
-        'tl_class' => 'w50 m12'
+        'tl_class' => 'clr w50 m12',
+        'helpwizard' => true
     ],
     'sql' => "char(1) NOT NULL default ''"
+];
+
+$GLOBALS['TL_DCA']['tl_form']['fields']['c2n_abuse_email'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_form']['c2n_abuse_email'],
+    'exclude' => true,
+    'inputType' => 'text',
+    'eval' => [
+        'rgxp' => 'email',
+        'maxlength' => 255,
+        'tl_class' => 'w50',
+        'decodeEntities' => true
+    ],
+    'sql' => "varchar(255) NOT NULL default ''"
 ];
 
 $GLOBALS['TL_DCA']['tl_form']['fields']['c2n_enable_altcha'] = [
@@ -148,7 +163,7 @@ $GLOBALS['TL_DCA']['tl_form']['fields']['c2n_enable_altcha'] = [
     'exclude' => true,
     'inputType' => 'checkbox',
     'eval' => [
-        'tl_class' => 'w50 m12'
+        'tl_class' => 'clr w50 m12'
     ],
     'sql' => "char(1) NOT NULL default ''"
 ];
