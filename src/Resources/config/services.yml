@@ -55,8 +55,6 @@ services:
       $requestStack: '@request_stack'
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
-    tags:
-      - { name: contao.hook, hook: compileFormFields, priority: 100 }
 
   # Anti-SPAM Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\AntiSpamFormListener:
