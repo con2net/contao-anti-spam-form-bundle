@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\DependencyInjection;
 
+use Con2net\ContaoAntiSpamFormBundle\EventListener\Notification\AbuseEmailNcV2Listener;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
@@ -36,5 +37,18 @@ class ContaoAntiSpamFormExtension extends Extension
         );
 
         $loader->load('services.yml');
+
+        // NotificationCenter 2.x abuse-email listener: only register if NC 2.x
+        // is actually installed. Guarded here (rather than via #[AsEventListener]
+        // on the class itself) so the container never needs to resolve
+        // Terminal42\NotificationCenterBundle\Event\CreateParcelEvent on
+        // installs without NotificationCenter - see AbuseEmailNcV2Listener.
+        if (class_exists('Terminal42\NotificationCenterBundle\Event\CreateParcelEvent')) {
+            $container->getDefinition(AbuseEmailNcV2Listener::class)
+                ->addTag('kernel.event_listener', [
+                    'event' => 'Terminal42\NotificationCenterBundle\Event\CreateParcelEvent',
+                    'method' => '__invoke',
+                ]);
+        }
     }
 }

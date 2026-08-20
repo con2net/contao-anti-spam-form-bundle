@@ -639,6 +639,15 @@ class AntiSpamFormListener
         // spam_marker wird IMMER gesetzt! ✅
         $submittedData['spam_marker'] = $spamMarker;
         $GLOBALS['C2N_SPAM_DETECTED'][$formId] = true;
+
+        // Abuse-E-Mail-Umleitung vormerken (nur wenn "SPAM nicht senden" NICHT
+        // aktiv ist - der Haken hat weiterhin Vorrang und blockiert komplett).
+        // Ausgewertet von den NC v1/v2 Notification-Listenern.
+        $formModel = FormModel::findByPk($formId);
+
+        if ($formModel !== null && !$formModel->c2n_block_spam && $formModel->c2n_abuse_email) {
+            $GLOBALS['C2N_ABUSE_EMAIL_REDIRECT'] = trim((string) $formModel->c2n_abuse_email);
+        }
     }
 
     /**
