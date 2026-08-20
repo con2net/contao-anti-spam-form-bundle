@@ -29,7 +29,7 @@
 
     function initAllForms() {
         // Sucht nach dem Contao FORM_SUBMIT Hidden-Field – zuverlässiger als Form-ID
-        document.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_form_"]')
+        document.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_"]')
             .forEach(function(input) {
                 initForm(input.closest('form'));
             });
@@ -48,12 +48,12 @@
                         }
                         // Neu hinzugefügtes Element direkt prüfen
                         if (node.name === 'FORM_SUBMIT' &&
-                            node.value && node.value.indexOf('auto_form_') === 0) {
+                            node.value && node.value.indexOf('auto_') === 0) {
                             initForm(node.closest('form'));
                         }
                         // Oder enthält es das Hidden-Field?
                         if (node.querySelectorAll) {
-                            node.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_form_"]')
+                            node.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_"]')
                                 .forEach(function(input) {
                                     initForm(input.closest('form'));
                                 });
