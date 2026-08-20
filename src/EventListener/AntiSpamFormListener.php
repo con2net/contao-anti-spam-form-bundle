@@ -11,6 +11,7 @@ use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\Form;
 use Contao\FormModel;
+use Contao\Message;
 use Contao\System;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -556,9 +557,13 @@ class AntiSpamFormListener
 
             if ($blockSpam) {
                 $this->blockSpam($form, $formId);
+                // Neuer Startzeitpunkt für einen erneuten Formularversuch
+                $session->set($sessionKey, time());
+            } else {
+                // Bei nur markiertem Spam wird der Vorgang regulär abgeschlossen
+                $session->remove($sessionKey);
             }
 
-            $session->remove($sessionKey);
             return;
         }
 
@@ -683,10 +688,8 @@ class AntiSpamFormListener
             __METHOD__
         );
 
-        $form->addError(
-            $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
-                ?? 'Your request could not be processed. Please try again later.'
-        );
+        $message = $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
+            ?? 'Your request could not be processed. Please try again later.';
 
         $request = $this->requestStack->getCurrentRequest();
 
@@ -699,5 +702,23 @@ class AntiSpamFormListener
                 time()
             );
         }
+
+        // Form::addError() exists in Contao 5.3+ only (not in 4.13) - shows the
+        // error inline on the same page without a redirect. On 4.13 we fall
+        // back to the classic flash message + redirect, since there is no
+        // form-level error mechanism available there at this point in the
+        // request lifecycle (individual widgets are already parsed into the
+        // template by the time this hook runs).
+        if (method_exists($form, 'addError')) {
+            $form->addError($message);
+
+            return;
+        }
+
+        Message::addError($message);
+
+        $uri = $request ? $request->getUri() : '/';
+        header('Location: ' . $uri, true, 302);
+        exit();
     }
 }
