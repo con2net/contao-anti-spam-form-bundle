@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.1]
+
+### Changed
+- Housekeeping release, no functional changes. Republished after a git history
+  cleanup altered the previously-published `1.2.0` tag reference, which Packagist's
+  version-immutability check correctly flagged; `1.2.1` establishes a clean,
+  immutable reference going forward.
+
+---
+
 ## [1.2.0]
 
 ### Added
