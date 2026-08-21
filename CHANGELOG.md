@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.2]
+
+### Changed
+- Housekeeping release, no functional changes. Re-tagged under a fresh version number
+  after `1.2.1`'s reference was flagged as changed by Packagist shortly after publishing.
+
+---
+
 ## [1.2.1]
 
 ### Changed
