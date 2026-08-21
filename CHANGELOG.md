@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.2.0]
+
+### Added
+- **Abuse-E-Mail-Adresse** (`c2n_abuse_email`): per-form fallback address for spam-flagged
+  submissions. Additive to the existing "SPAM-Nachrichten nicht senden" checkbox — only takes
+  effect when that checkbox is off, redirecting the spam-marked notification to this address
+  instead of the normal recipients (NotificationCenter v1 and v2 both supported).
+- **FR/IT/ES/PL translations** for the `c2nSpamBlocked` error message, extending the EN/NL
+  translations contributed via PR #8 by Klaus Beeck (VisionThinks).
+- Compatibility range extended to include **Contao `^5.7`**.
+
+### Changed
+- **ALTCHA JS widget** updated from 3.0.4 to 3.2.2.
+- Numeric form IDs are now resolved directly from `$form->id` instead of parsing the `auto_form_`
+  string prefix — more robust across Contao versions (groundwork from PR #8).
+- The session retry-timestamp is now reset consistently across **all** spam-block paths (previously
+  inconsistent between the honeypot, min-time and max-time paths).
+
+### Fixed
+- **Fix #7**: `timetoken.js` matched forms by the `auto_form_` ID prefix, which only exists for
+  forms without a custom alias — a form with a custom alias produces `auto_<alias>` instead, so
+  the JS-token check silently never ran for those forms. Now matches the generic `auto_` prefix.
+- **Duplicate `FormLoadListener` hook registration** (registered via both a PHP attribute and
+  `services.yml`), causing double execution and session conflicts.
+- **`Form::addError()` crash on Contao 4.13**: `Form::addError()` only exists in Contao 5.3+;
+  calling it unconditionally (as originally proposed in PR #8) crashed on 4.13. Guarded with
+  `method_exists()`.
+- **Silent SPAM block on Contao 4.13**: the 4.13 fallback above (guarding `Form::addError()`)
+  still left 4.13 senders with no visible feedback at all — it fell back to a session flash
+  message + redirect, which in practice showed nothing since the target page rarely renders
+  flash messages. Blocking now hooks into `validateFormField` and attaches the error to a real
+  form field via `Widget::addError()` before Contao commits to the success path — same inline,
+  no-redirect experience as Contao 5.3+, using the same mechanism the bundle's own ALTCHA widget
+  already relies on. The old redirect remains only as a fallback for forms with no eligible
+  visible field (e.g. honeypot + submit button only).
+
+---
+
 ## [1.1.0]
 
 ### Added

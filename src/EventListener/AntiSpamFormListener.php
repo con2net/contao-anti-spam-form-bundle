@@ -10,9 +10,12 @@ use Con2net\ContaoAntiSpamFormBundle\Service\ContentAnalysisService;
 use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\Form;
+use Contao\FormFieldModel;
 use Contao\FormModel;
+use Contao\Input;
 use Contao\Message;
 use Contao\System;
+use Contao\Widget;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -28,13 +31,30 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * 6. Zeit-basierte Validierung (Min/Max)
  */
 #[AsHook('prepareFormData', priority: 100)]
+#[AsHook('validateFormField', method: 'onValidateFormField')]
 class AntiSpamFormListener
 {
+    /**
+     * Feldtypen, an die eine SPAM-Blockierungs-Meldung NICHT gehängt werden darf: entweder
+     * eigene Spezialfelder (Honeypot ist per CSS versteckt, ALTCHA validiert sich selbst) oder
+     * Contao-Kerntypen ohne Fehler-Ausgabeblock im jeweiligen Feld-Template.
+     */
+    private const SPAM_ERROR_INELIGIBLE_TYPES = [
+        'c2n_honeypot', 'c2n_honeypot_textarea', 'c2n_honeypot_checkbox', 'c2n_altcha',
+        'hidden', 'submit', 'explanation', 'html', 'fieldsetStart', 'fieldsetStop',
+    ];
+
     private IpBlacklistService $ipBlacklistService;
     private ContentAnalysisService $contentAnalysisService;
     private LoggerInterface $logger;
     private RequestStack $requestStack;
     private LoggingHelper $loggingHelper;
+
+    /**
+     * Cache des früh (im validateFormField-Hook) ermittelten SPAM-Verdikts pro Formular-ID,
+     * damit die Erkennung pro Request nur einmal läuft (der Hook feuert einmal pro Widget).
+     */
+    private array $earlySpamVerdicts = [];
 
     public function __construct(
         IpBlacklistService $ipBlacklistService,
@@ -70,18 +90,15 @@ class AntiSpamFormListener
             return;
         }
 
-        $debugMode = (bool)$formModel->c2n_debug;
-        $spamMarker = html_entity_decode(
-            $formModel->c2n_spam_prefix ?: '*** SPAM *** ',
-            ENT_QUOTES,
-            'UTF-8'
-        );
-        $minSubmitTime = (int)($formModel->c2n_min_submit_time ?: 10);
-        $maxSubmitTime = (int)($formModel->c2n_max_submit_time ?: 0);
-        $blockSpam = (bool)$formModel->c2n_block_spam;
-        $enableIpBlacklist = (bool)($formModel->c2n_enable_ip_blacklist ?? false);
-        $enableContentAnalysis = (bool)($formModel->c2n_enable_content_analysis ?? false);
-        $formName = $formModel->title ?: 'Form ' . $formId;
+        $config = $this->buildAntiSpamConfig($formModel);
+        $debugMode = $config['debugMode'];
+        $spamMarker = $config['spamMarker'];
+        $minSubmitTime = $config['minSubmitTime'];
+        $maxSubmitTime = $config['maxSubmitTime'];
+        $blockSpam = $config['blockSpam'];
+        $enableIpBlacklist = $config['enableIpBlacklist'];
+        $enableContentAnalysis = $config['enableContentAnalysis'];
+        $formName = $config['formName'];
 
         if ($debugMode) {
             $this->loggingHelper->logInfo(
@@ -288,47 +305,7 @@ class AntiSpamFormListener
 
             try {
                 // Config aus FormModel laden
-                $contentConfig = [
-                    'spam_threshold' => (int)($formModel->c2n_content_spam_threshold ?: 50),
-
-                    // URLs im Text
-                    'check_urls' => (bool)$formModel->c2n_content_check_urls,
-                    'score_urls' => (int)($formModel->c2n_content_score_urls ?: 50),
-                    'fields_urls' => $formModel->c2n_content_fields_urls,
-
-                    // Nur Sonderzeichen
-                    'check_special_chars' => (bool)$formModel->c2n_content_check_special_chars,
-                    'score_special_chars' => (int)($formModel->c2n_content_score_special_chars ?: 40),
-                    'fields_special_chars' => $formModel->c2n_content_fields_special_chars,
-
-                    // Tempmail-Adressen
-                    'check_tempmail' => (bool)$formModel->c2n_content_check_tempmail,
-                    'score_tempmail' => (int)($formModel->c2n_content_score_tempmail ?: 30),
-                    'tempmail_domains' => $formModel->c2n_content_tempmail_domains ?: '',
-
-                    // Nachricht zu kurz
-                    'check_short_message' => (bool)$formModel->c2n_content_check_short_message,
-                    'score_short_message' => (int)($formModel->c2n_content_score_short_message ?: 25),
-                    'min_message_length' => (int)($formModel->c2n_content_min_message_length ?: 10),
-                    'fields_short_message' => $formModel->c2n_content_fields_short_message,
-
-                    // Repetitive Zeichen
-                    'check_repetitive' => (bool)$formModel->c2n_content_check_repetitive,
-                    'score_repetitive' => (int)($formModel->c2n_content_score_repetitive ?: 20),
-                    'fields_repetitive' => $formModel->c2n_content_fields_repetitive,
-
-                    // Großbuchstaben
-                    'check_uppercase' => (bool)$formModel->c2n_content_check_uppercase,
-                    'score_uppercase' => (int)($formModel->c2n_content_score_uppercase ?: 15),
-                    'max_uppercase_ratio' => (int)($formModel->c2n_content_max_uppercase_ratio ?: 60),
-                    'fields_uppercase' => $formModel->c2n_content_fields_uppercase,  // NEU!
-
-                    // SPAM-Keywords
-                    'check_keywords' => (bool)$formModel->c2n_content_check_keywords,
-                    'score_keywords' => (int)($formModel->c2n_content_score_keywords ?: 10),
-                    'spam_keywords' => $formModel->c2n_content_spam_keywords ?: '',
-                    'fields_keywords' => $formModel->c2n_content_fields_keywords
-                ];
+                $contentConfig = $this->buildContentAnalysisConfig($formModel);
 
                 // Debug: Zeige aktivierte Tests
                 if ($debugMode) {
@@ -691,34 +668,309 @@ class AntiSpamFormListener
         $message = $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
             ?? 'Your request could not be processed. Please try again later.';
 
-        $request = $this->requestStack->getCurrentRequest();
-
-        if ($request && $request->hasSession()) {
-            $session = $request->getSession();
-
-            // Neuer Startzeitpunkt für einen erneuten Versuch
-            $session->set(
-                'c2n_form_timestamp_' . $formId,
-                time()
-            );
-        }
+        $this->resetFormTimer($formId);
 
         // Form::addError() exists in Contao 5.3+ only (not in 4.13) - shows the
-        // error inline on the same page without a redirect. On 4.13 we fall
-        // back to the classic flash message + redirect, since there is no
-        // form-level error mechanism available there at this point in the
-        // request lifecycle (individual widgets are already parsed into the
-        // template by the time this hook runs).
+        // error inline on the same page without a redirect.
         if (method_exists($form, 'addError')) {
             $form->addError($message);
 
             return;
         }
 
+        // On 4.13, blocking normally already happened earlier via the
+        // validateFormField hook (onValidateFormField()), which attaches the
+        // error to a real widget before Contao commits to the success path -
+        // reaching this point on 4.13 means no eligible widget was found (e.g.
+        // a form consisting only of a honeypot + submit button). Fall back to
+        // the classic flash message + redirect for that rare case.
         Message::addError($message);
 
+        $request = $this->requestStack->getCurrentRequest();
         $uri = $request ? $request->getUri() : '/';
         header('Location: ' . $uri, true, 302);
         exit();
+    }
+
+    /**
+     * Hook: validateFormField
+     *
+     * Feuert pro Widget, bevor Contao intern $doNotSubmit final setzt und bevor
+     * prepareFormData/processFormData überhaupt laufen. Auf Contao 4.13 (das kein
+     * Form::addError() kennt) ist das die einzige Stelle, an der ein SPAM-Block
+     * noch OHNE Redirect sichtbar gemacht werden kann: addError() auf einem echten
+     * Feld setzt hasErrors() für Contaos eigene Prüfung, die Fehlermeldung wird
+     * automatisch im Feld-Template gerendert (derselbe Mechanismus, den
+     * AltchaFormField::validate() bereits nutzt).
+     *
+     * Auf Contao 5.3+ ist das ein reines No-Op, da dort onPrepareFormData()/
+     * Form::addError() den Block bereits korrekt und getestet übernimmt.
+     */
+    public function onValidateFormField(Widget $widget, string $formId, array $formData, Form $form): Widget
+    {
+        if (method_exists($form, 'addError')) {
+            return $widget;
+        }
+
+        $numericFormId = (int) $form->id;
+
+        if (array_key_exists($numericFormId, $this->earlySpamVerdicts)) {
+            return $widget;
+        }
+
+        if (!$this->isEligibleForSpamError($widget)) {
+            return $widget;
+        }
+
+        $formModel = FormModel::findByPk($numericFormId);
+
+        if (!$formModel || !$formModel->c2n_enable_antispam || !$formModel->c2n_block_spam) {
+            $this->earlySpamVerdicts[$numericFormId] = false;
+
+            return $widget;
+        }
+
+        $isSpam = $this->isSubmissionSpamEarly($numericFormId, $formModel);
+        $this->earlySpamVerdicts[$numericFormId] = $isSpam;
+
+        if (!$isSpam) {
+            return $widget;
+        }
+
+        $message = $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
+            ?? 'Your request could not be processed. Please try again later.';
+
+        $widget->addError($message);
+        $this->resetFormTimer($numericFormId);
+
+        $this->loggingHelper->logError(
+            sprintf('SPAM BLOCKED (early, via validateFormField on field "%s")', $widget->name),
+            __METHOD__
+        );
+
+        return $widget;
+    }
+
+    /**
+     * Prüft, ob ein Widget-Typ eine SPAM-Blockierungs-Meldung sichtbar anzeigen kann
+     */
+    private function isEligibleForSpamError(Widget $widget): bool
+    {
+        return !in_array($widget->type, self::SPAM_ERROR_INELIGIBLE_TYPES, true);
+    }
+
+    /**
+     * Frühe, eigenständige SPAM-Erkennung für den validateFormField-Hook (Contao 4.13).
+     *
+     * Spiegelt dieselbe Prüfreihenfolge wie __invoke() (PRÜFUNG 0 -> 0a -> 0b -> 0c ->
+     * Timestamp -> Honeypot -> Min-Zeit -> Max-Zeit), liest Feldwerte aber direkt aus
+     * Input::post()/$_POST/Session statt aus dem zu diesem Zeitpunkt noch nicht
+     * vollständig aufgebauten $submittedData-Array. Ein falsch-negatives Ergebnis hier
+     * ist unkritisch (die vollständige Prüfung in __invoke() läuft danach ganz normal
+     * weiter), ein falsch-positives Ergebnis wäre eine echte Regression - beide Pfade
+     * müssen daher synchron gehalten und gemeinsam getestet werden.
+     */
+    private function isSubmissionSpamEarly(int $formId, FormModel $formModel): bool
+    {
+        $config = $this->buildAntiSpamConfig($formModel);
+
+        $request = $this->requestStack->getCurrentRequest();
+
+        if (!$request || !$request->hasSession()) {
+            return true;
+        }
+
+        $session = $request->getSession();
+        $sessionKey = 'c2n_form_timestamp_' . $formId;
+
+        // PRÜFUNG 0: JavaScript-Token
+        $jsToken = $_POST['page_hash'] ?? null;
+
+        if (!$jsToken || !str_starts_with($jsToken, 'js_verified_')) {
+            return true;
+        }
+
+        $fields = FormFieldModel::findBy('pid', $formId, ['order' => 'sorting']);
+        $honeypotFieldNames = [];
+        $data = [];
+
+        if ($fields !== null) {
+            foreach ($fields as $field) {
+                if (in_array($field->type, ['c2n_honeypot', 'c2n_honeypot_textarea', 'c2n_honeypot_checkbox'], true)) {
+                    $honeypotFieldNames[] = $field->name;
+
+                    continue;
+                }
+
+                if (!in_array($field->type, self::SPAM_ERROR_INELIGIBLE_TYPES, true)) {
+                    $data[$field->name] = Input::post($field->name);
+                }
+            }
+        }
+
+        // PRÜFUNG 0a: IP-Blacklist
+        if ($config['enableIpBlacklist']) {
+            try {
+                if ($this->ipBlacklistService->isIpBlacklisted($this->getUserIp())) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                $this->loggingHelper->logError(
+                    sprintf('Early IP Blacklist check failed: %s', $e->getMessage()),
+                    __METHOD__
+                );
+            }
+
+            // PRÜFUNG 0b: E-Mail-Blacklist
+            $emailCandidates = [];
+            foreach (['email', 'e-mail', 'e_mail', 'mail', 'Email', 'E-Mail'] as $field) {
+                $emailCandidates[$field] = Input::post($field);
+            }
+
+            $email = $this->extractEmail($emailCandidates);
+
+            if ($email) {
+                try {
+                    if ($this->ipBlacklistService->isEmailBlacklisted($email)) {
+                        return true;
+                    }
+                } catch (\Exception $e) {
+                    $this->loggingHelper->logError(
+                        sprintf('Early E-Mail Blacklist check failed: %s', $e->getMessage()),
+                        __METHOD__
+                    );
+                }
+            }
+        }
+
+        // PRÜFUNG 0c: Content-Analyse
+        if ($config['enableContentAnalysis']) {
+            try {
+                $result = $this->contentAnalysisService->analyzeContent(
+                    $data,
+                    $this->buildContentAnalysisConfig($formModel)
+                );
+
+                if ($result['is_spam']) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                $this->loggingHelper->logError(
+                    sprintf('Early Content Analysis failed: %s', $e->getMessage()),
+                    __METHOD__
+                );
+            }
+        }
+
+        // Timestamp aus Session
+        $formLoadTimestamp = $session->get($sessionKey);
+
+        if (!$formLoadTimestamp) {
+            return true;
+        }
+
+        // PRÜFUNG 1: Honeypot
+        foreach ($honeypotFieldNames as $honeypotFieldName) {
+            if (trim((string) Input::postUnsafeRaw($honeypotFieldName)) !== '') {
+                return true;
+            }
+        }
+
+        $timeTaken = time() - $formLoadTimestamp;
+
+        // PRÜFUNG 2: Min-Zeit
+        if ($timeTaken < $config['minSubmitTime']) {
+            return true;
+        }
+
+        // PRÜFUNG 3: Max-Zeit
+        if ($config['maxSubmitTime'] > 0 && $timeTaken > $config['maxSubmitTime']) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Lädt die Anti-SPAM-Konfiguration eines Formulars (wird sowohl von __invoke()
+     * als auch von isSubmissionSpamEarly() genutzt, um Drift zwischen beiden zu vermeiden)
+     */
+    private function buildAntiSpamConfig(FormModel $formModel): array
+    {
+        return [
+            'debugMode' => (bool) $formModel->c2n_debug,
+            'spamMarker' => html_entity_decode(
+                $formModel->c2n_spam_prefix ?: '*** SPAM *** ',
+                ENT_QUOTES,
+                'UTF-8'
+            ),
+            'minSubmitTime' => (int) ($formModel->c2n_min_submit_time ?: 10),
+            'maxSubmitTime' => (int) ($formModel->c2n_max_submit_time ?: 0),
+            'blockSpam' => (bool) $formModel->c2n_block_spam,
+            'enableIpBlacklist' => (bool) ($formModel->c2n_enable_ip_blacklist ?? false),
+            'enableContentAnalysis' => (bool) ($formModel->c2n_enable_content_analysis ?? false),
+            'formName' => $formModel->title ?: 'Form ' . $formModel->id,
+        ];
+    }
+
+    /**
+     * Baut die Content-Analyse-Konfiguration aus dem FormModel (wird sowohl von
+     * __invoke() als auch von isSubmissionSpamEarly() genutzt)
+     */
+    private function buildContentAnalysisConfig(FormModel $formModel): array
+    {
+        return [
+            'spam_threshold' => (int)($formModel->c2n_content_spam_threshold ?: 50),
+
+            // URLs im Text
+            'check_urls' => (bool)$formModel->c2n_content_check_urls,
+            'score_urls' => (int)($formModel->c2n_content_score_urls ?: 50),
+            'fields_urls' => $formModel->c2n_content_fields_urls,
+
+            // Nur Sonderzeichen
+            'check_special_chars' => (bool)$formModel->c2n_content_check_special_chars,
+            'score_special_chars' => (int)($formModel->c2n_content_score_special_chars ?: 40),
+            'fields_special_chars' => $formModel->c2n_content_fields_special_chars,
+
+            // Tempmail-Adressen
+            'check_tempmail' => (bool)$formModel->c2n_content_check_tempmail,
+            'score_tempmail' => (int)($formModel->c2n_content_score_tempmail ?: 30),
+            'tempmail_domains' => $formModel->c2n_content_tempmail_domains ?: '',
+
+            // Nachricht zu kurz
+            'check_short_message' => (bool)$formModel->c2n_content_check_short_message,
+            'score_short_message' => (int)($formModel->c2n_content_score_short_message ?: 25),
+            'min_message_length' => (int)($formModel->c2n_content_min_message_length ?: 10),
+            'fields_short_message' => $formModel->c2n_content_fields_short_message,
+
+            // Repetitive Zeichen
+            'check_repetitive' => (bool)$formModel->c2n_content_check_repetitive,
+            'score_repetitive' => (int)($formModel->c2n_content_score_repetitive ?: 20),
+            'fields_repetitive' => $formModel->c2n_content_fields_repetitive,
+
+            // Großbuchstaben
+            'check_uppercase' => (bool)$formModel->c2n_content_check_uppercase,
+            'score_uppercase' => (int)($formModel->c2n_content_score_uppercase ?: 15),
+            'max_uppercase_ratio' => (int)($formModel->c2n_content_max_uppercase_ratio ?: 60),
+            'fields_uppercase' => $formModel->c2n_content_fields_uppercase,
+
+            // SPAM-Keywords
+            'check_keywords' => (bool)$formModel->c2n_content_check_keywords,
+            'score_keywords' => (int)($formModel->c2n_content_score_keywords ?: 10),
+            'spam_keywords' => $formModel->c2n_content_spam_keywords ?: '',
+            'fields_keywords' => $formModel->c2n_content_fields_keywords
+        ];
+    }
+
+    /**
+     * Setzt den Session-Zeitstempel für einen erneuten Formularversuch zurück
+     */
+    private function resetFormTimer(int $formId): void
+    {
+        $request = $this->requestStack->getCurrentRequest();
+
+        if ($request && $request->hasSession()) {
+            $request->getSession()->set('c2n_form_timestamp_' . $formId, time());
+        }
     }
 }
