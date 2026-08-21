@@ -196,6 +196,7 @@ Scrolle zur Sektion **"Anti-SPAM Schutz"** und aktiviere die gewünschten Featur
 - **Maximale Absende-Zeit** - Formulare langsamer als X Sek. = SPAM (z.B. 300 Sek. oder 0 für unbegrenzt)
 - **SPAM-Markierung** - Text für `##form_spam_marker##` Variable (z.B. `*** SPAM *** `)
 - **SPAM-Nachrichten nicht senden** - SPAM-E-Mails komplett blockieren (statt nur markieren)
+- **Abuse-E-Mail-Adresse** - Nur wirksam wenn "SPAM-Nachrichten nicht senden" NICHT aktiviert ist: leitet SPAM-markierte Benachrichtigungen an diese Adresse um, statt an die konfigurierten Empfänger (siehe [Empfehlungen / Best Practices](#empfehlungen--best-practices))
 
 #### Erweiterte Features
 
@@ -303,6 +304,37 @@ In deiner E-Mail-Benachrichtigung (Notification Center oder Contao Standard) ste
  
 So kannst du SPAM-Nachrichten im Posteingang sofort erkennen und z.B. automatisch in einen Spam-Ordner verschieben lassen.
 
+Alternativ kannst du SPAM-markierte Benachrichtigungen auch komplett von den normalen Empfängern
+fernhalten, indem du eine **Abuse-E-Mail-Adresse** hinterlegst (siehe oben) — dann gehen sie nur
+noch dorthin. Details und Anwendungsfälle dazu im nächsten Abschnitt.
+
+---
+
+## Empfehlungen / Best Practices
+
+### Verhalten bei SPAM "Eingaben"
+
+In bestimmten Situationen kann es passieren, dass die Formulareingaben eines echten Nutzers fälschlicherweise 
+zu einer SPAM-Reaktion führen (z.B. durch eine zu streng eingestellte Content-Analyse oder
+ungewöhnliches Zeitverhalten). Ob und wie sichtbar eine als SPAM erkannte Einsendung für den Absender ist, hängt von der Kombination
+aus "SPAM-Nachrichten nicht senden" und "Abuse-E-Mail-Adresse" ab. Standardmäßig
+zeigt das Bundle bei einer Blockierung direkt im Formular eine Fehlermeldung (Contao 4.13 und
+5.3+ verhalten sich hier identisch) — das hilft echten Nutzern diese Situation zu erkennen,
+ist aber für einen Bot theoretisch als Signal erkennbar, dass hier ein Filter aktiv ist.
+
+Je nach Anwendungsfall kann ein anderes Verhalten sinnvoller sein:
+
+| SPAM-Nachrichten nicht senden | Abuse-E-Mail-Adresse | Verhalten                                                                                           | Wann sinnvoll                                                                                                                                        |
+|--|----------------------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| aktiviert | irrelevant           | Einsendung wird komplett blockiert, sichtbare Fehlermeldung für den Absender, nichts wird versendet | Maximale "Ruhe", eine beim Nutzer sichtbare "Blockierungsmeldung" wird akzeptiert                                                                    |
+| deaktiviert | leer                 | SPAM wird markiert (`##form_spam_marker##`) und geht wie gewohnt an die konfigurierten Empfänger    | Standard, wenn du vermeintliche SPAM-Mails als solche kennzeichnen möchtest, und selbst überprüfen/filtern/aussortieren willst                       |
+| deaktiviert | echte, überwachte E-Mail-Adresse | SPAM-markierte Benachrichtigungen gehen nur an diese Adresse statt an die normalen Empfänger        | Manuelle Prüfung von Grenzfällen, ohne die regulären Empfänger zu belasten                                                                           |
+| deaktiviert | bewusst unbeobachtete E-Mail-Adresse ("Silent Drop") | Absender sieht eine normale Erfolgsmeldung, die eigentliche Benachrichtigung verpufft faktisch      | Weder ein sichtbares Block-Signal noch der Verlust echter Anfragen (False Positives) ist gewünscht, aber auch niemand soll mit SPAM behelligt werden |
+
+**Hinweis zum "Silent Drop":** Verwende dafür eine echte, aber bewusst nicht gelesene Mailbox
+statt einer nicht existierenden Adresse — Es besteht sonst die Gefahr dass dadurch unnötige Bounce-Mails, die im schlimmsten Fall auch 
+Reputationsprobleme verursachen könnne, erzeugt werden. Bitte ggf. prüfen, ob Nachrichten an diese Adresse sicher gedroppt werden können.
+
 ---
 
 ## Logs & Debugging
@@ -369,7 +401,7 @@ php vendor/bin/contao-console cache:clear
 ### Systemanforderungen
 
 - PHP 8.2 oder höher
-- Contao 4.13 LTS oder Contao 5.3 LTS
+- Contao 4.13 LTS, Contao 5.3 LTS oder Contao 5.7
 - Symfony 5.4 / 6.x / 7.x
 
 ### Architektur
@@ -382,9 +414,12 @@ Services:
   - LoggingHelper         (Unified Logging)
 
 Listener:
-  - FormLoadListener      (Session-Timestamp)
-  - AntiSpamFormListener  (Multi-Layer SPAM-Checks)
-  - PageListener          (CSS/JS Assets)
+  - FormLoadListener        (Session-Timestamp)
+  - AntiSpamFormListener    (Multi-Layer SPAM-Checks)
+  - CleanupFormDataListener (Entfernt technische Felder aus raw_data)
+  - PageListener            (CSS/JS Assets)
+  - Notification/AbuseEmailNcV1Listener (NotificationCenter 1.x: Empfänger-Umleitung)
+  - Notification/AbuseEmailNcV2Listener (NotificationCenter 2.x: Empfänger-Umleitung)
 
 Widgets:
   - AltchaFormField       (ALTCHA Captcha)
