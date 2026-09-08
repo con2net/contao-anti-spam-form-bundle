@@ -61,7 +61,6 @@ try {
             workers="4"
             hidefooter="false"
             hidelogo="false"
-            strings='{"label":"Ich bin kein Roboter","verifying":"Verifizierung läuft...","verified":"Verifiziert","error":"Fehler bei der Verifizierung"}'
             data-widget-id="<?= $this->id ?>">
     </altcha-widget>
 

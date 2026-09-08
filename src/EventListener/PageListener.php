@@ -19,6 +19,21 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
  */
 class PageListener
 {
+    /**
+     * Vendorte ALTCHA-Sprachpakete (offizielle Übersetzungen aus dem
+     * altcha-Paket, dist/i18n/*.js). Der Schlüssel ist der Contao-Sprachcode,
+     * der Wert der Dateiname im Bundle.
+     */
+    private const ALTCHA_I18N_FILES = [
+        'de' => 'de.js',
+        'en' => 'en.js',
+        'es' => 'es-es.js',
+        'fr' => 'fr-fr.js',
+        'it' => 'it.js',
+        'nl' => 'nl.js',
+        'pl' => 'pl.js',
+    ];
+
     private RequestStack $requestStack;
     private ScopeMatcher $scopeMatcher;
     private ContaoFramework $framework;
@@ -63,6 +78,18 @@ class PageListener
         if ($hasAltcha) {
             // ALTCHA Library als ES Module laden (Web Component)
             $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js"></script>';
+
+            // Alle vendorten ALTCHA-Sprachpakete laden (offizielle
+            // Übersetzungen, registrieren sich selbst im Widget-eigenen
+            // i18n-Store - siehe https://altcha.org/docs/widget-customization/).
+            // Das Widget wählt daraus zur Laufzeit selbst die zu
+            // document.documentElement.lang passende Sprache aus - kein
+            // serverseitiges Sprach-Guessing nötig (und an dieser Stelle im
+            // Request-Zyklus ist $request->getLocale() ohnehin noch nicht
+            // zuverlässig die tatsächliche Seitensprache).
+            foreach (self::ALTCHA_I18N_FILES as $file) {
+                $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . '"></script>';
+            }
 
             // ALTCHA Event-Handler (normales Script)
             $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/altcha-handler.js';
