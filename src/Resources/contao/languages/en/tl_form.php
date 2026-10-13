@@ -65,7 +65,7 @@ $GLOBALS['TL_LANG']['tl_form']['c2n_enable_content_analysis'] = [
 // General
 $GLOBALS['TL_LANG']['tl_form']['c2n_content_spam_threshold'] = [
     'SPAM threshold (points)',
-    'A message is considered SPAM from this score upwards. Default: 50 points. The individual tests add up their scores. Higher value = stricter (less SPAM let through), lower value = looser (more genuine enquiries let through).'
+    'A message is considered SPAM from this score upwards. Default: 50 points. The individual tests add up their scores. Higher value = less strict: SPAM is detected less often, but fewer false positives. Lower value = stricter: SPAM is detected more often, but genuine enquiries may be blocked by mistake.'
 ];
 
 // ===== Test 1: URLs in text =====

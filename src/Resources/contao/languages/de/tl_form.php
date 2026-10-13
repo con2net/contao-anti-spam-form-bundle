@@ -65,7 +65,7 @@ $GLOBALS['TL_LANG']['tl_form']['c2n_enable_content_analysis'] = [
 // Allgemein
 $GLOBALS['TL_LANG']['tl_form']['c2n_content_spam_threshold'] = [
     'SPAM-Schwellwert (Punkte)',
-    'Ab dieser Punktzahl gilt eine Nachricht als SPAM. Standard: 50 Punkte. Die einzelnen Tests addieren ihre Scores auf. Höherer Wert = strenger (weniger SPAM durchgelassen), niedrigerer Wert = lockerer (mehr echte Anfragen durchgelassen).'
+    'Ab dieser Punktzahl gilt eine Nachricht als SPAM. Standard: 50 Punkte. Die einzelnen Tests addieren ihre Scores auf. Höherer Wert = weniger streng: SPAM wird seltener erkannt, dafür weniger Fehlalarme. Niedrigerer Wert = strenger: SPAM wird häufiger erkannt, aber auch echte Anfragen können fälschlich blockiert werden.'
 ];
 
 // ===== Test 1: URLs im Text =====
