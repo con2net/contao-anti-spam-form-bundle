@@ -94,3 +94,48 @@ $GLOBALS['TL_LANG']['XPL']['c2n_block_spam'] = [
         working unchanged.'
     ]
 ];
+
+$GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
+    [
+        'Discard silently',
+        'The registration is discarded and the visitor is redirected as after a
+        successful registration. Bots get no hint that they were detected.'
+    ],
+    [
+        'Show an error message in the form',
+        'The form is shown again with an error message, the input is kept. Recommended,
+        because a real visitor immediately notices if a registration was wrongly
+        detected as SPAM.'
+    ],
+    [
+        'Send a report by e-mail, then discard silently',
+        'Like "Discard silently", but additionally a report about the discarded
+        registration (without password) is sent to the configured address(es).'
+    ],
+    [
+        'Important',
+        'In all cases NO member is created and no e-mail is sent to the visitor.'
+    ]
+];
+
+$GLOBALS['TL_LANG']['XPL']['c2n_registration_altcha'] = [
+    [
+        'ALTCHA instead of the Contao security question',
+        'If enabled, the registration form shows the ALTCHA captcha of the Anti-SPAM
+        extension. The Contao security question is hidden automatically, the
+        "Disable spam protection" setting itself is not changed.'
+    ],
+    [
+        '"Disable spam protection" (Contao)',
+        'This Contao setting in the "Module configuration" section ONLY disables the
+        Contao security question, NOT the protection of the Anti-SPAM extension. That
+        is controlled solely by "Enable Anti-SPAM protection".'
+    ],
+    [
+        'Contao 4.13: embedding via a content element',
+        'If the registration module is embedded into an article via a content element of
+        type "Module" on Contao 4.13, the Contao security question cannot be hidden
+        automatically and both captchas are shown. In this case additionally tick
+        "Disable spam protection" in the module. Not needed on Contao 5.'
+    ]
+];

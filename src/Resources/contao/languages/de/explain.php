@@ -93,3 +93,51 @@ $GLOBALS['TL_LANG']['XPL']['c2n_block_spam'] = [
         Migration nötig, bestehende Formulare funktionieren unverändert weiter.'
     ]
 ];
+
+$GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
+    [
+        'Still verwerfen',
+        'Die Registrierung wird verworfen, der Besucher wird wie nach einer erfolgreichen
+        Registrierung weitergeleitet. Bots erhalten so keinen Hinweis auf die Erkennung.'
+    ],
+    [
+        'Fehlermeldung am Formular anzeigen',
+        'Das Formular wird mit einer Fehlermeldung erneut angezeigt, die Eingaben bleiben
+        erhalten. Empfohlen, weil ein echter Besucher bei einer Fehlerkennung sofort merkt,
+        dass die Registrierung nicht geklappt hat.'
+    ],
+    [
+        'Bericht per E-Mail senden, dann still verwerfen',
+        'Wie "Still verwerfen", zusätzlich geht ein Bericht über die verworfene
+        Registrierung (ohne Passwort) an die konfigurierte(n) Adresse(n).'
+    ],
+    [
+        'Wichtig',
+        'In allen Fällen wird KEIN Mitglied angelegt und es wird keine E-Mail an den
+        Besucher verschickt.'
+    ]
+];
+
+$GLOBALS['TL_LANG']['XPL']['c2n_registration_altcha'] = [
+    [
+        'ALTCHA statt Contao-Sicherheitsfrage',
+        'Ist diese Option aktiv, zeigt das Registrierungsformular das ALTCHA Captcha der
+        Anti-SPAM Erweiterung an. Die Contao-Sicherheitsfrage wird dafür automatisch
+        ausgeblendet, an der Einstellung "Spam-Schutz deaktivieren" ändert sich dabei
+        nichts.'
+    ],
+    [
+        '"Spam-Schutz deaktivieren" (Contao)',
+        'Diese Contao-Einstellung im Abschnitt "Modul-Konfiguration" schaltet NUR die
+        Contao-Sicherheitsfrage ab, NICHT den Schutz der Anti-SPAM Erweiterung. Dieser
+        wird ausschließlich über "Anti-SPAM Schutz aktivieren" gesteuert.'
+    ],
+    [
+        'Contao 4.13: Einbindung über ein Inhaltselement',
+        'Ist das Registrierungsmodul unter Contao 4.13 über ein Inhaltselement vom Typ
+        "Modul" in einen Artikel eingebunden, kann die Contao-Sicherheitsfrage nicht
+        automatisch ausgeblendet werden, es erscheinen dann beide Captchas. Setzen Sie in
+        diesem Fall im Modul zusätzlich den Haken "Spam-Schutz deaktivieren". Unter
+        Contao 5 ist das nicht nötig.'
+    ]
+];
