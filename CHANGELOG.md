@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.0] - unreleased
+
+### Fixed
+- **Help text of the content-analysis threshold** (`c2n_content_spam_threshold`) described the
+  effect of higher/lower values the wrong way round (DE/EN). Fix #10.
+
+---
+
+## [1.2.3]
+
+### Fixed
+- **ALTCHA widget language** now follows the page language: the official ALTCHA i18n
+  language packs (DE/EN/ES/FR/IT/NL/PL) are vendored in the bundle and loaded alongside the
+  widget, which picks the matching one from `<html lang>` at runtime. Replaces the hard-coded
+  German `strings` attribute in `form_c2n_altcha.html5`. Served from the site's own domain,
+  no CDN. Fix #9.
+
+---
+
 ## [1.2.2]
 
 ### Changed
