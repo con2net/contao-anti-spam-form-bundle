@@ -8,6 +8,14 @@
 (function() {
     'use strict';
 
+    // Formulargenerator (auto_...) und Mitglieder-Registrierung (tl_registration_<Modul-ID>)
+    var SELECTOR = 'input[name="FORM_SUBMIT"][value^="auto_"],' +
+        'input[name="FORM_SUBMIT"][value^="tl_registration_"]';
+
+    function isProtectedFormSubmit(value) {
+        return value.indexOf('auto_') === 0 || value.indexOf('tl_registration_') === 0;
+    }
+
     function initForm(form) {
         if (!form || form.dataset.c2nInitialized) {
             return;
@@ -29,7 +37,7 @@
 
     function initAllForms() {
         // Sucht nach dem Contao FORM_SUBMIT Hidden-Field – zuverlässiger als Form-ID
-        document.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_"]')
+        document.querySelectorAll(SELECTOR)
             .forEach(function(input) {
                 initForm(input.closest('form'));
             });
@@ -48,12 +56,12 @@
                         }
                         // Neu hinzugefügtes Element direkt prüfen
                         if (node.name === 'FORM_SUBMIT' &&
-                            node.value && node.value.indexOf('auto_') === 0) {
+                            node.value && isProtectedFormSubmit(node.value)) {
                             initForm(node.closest('form'));
                         }
                         // Oder enthält es das Hidden-Field?
                         if (node.querySelectorAll) {
-                            node.querySelectorAll('input[name="FORM_SUBMIT"][value^="auto_"]')
+                            node.querySelectorAll(SELECTOR)
                                 .forEach(function(input) {
                                     initForm(input.closest('form'));
                                 });
