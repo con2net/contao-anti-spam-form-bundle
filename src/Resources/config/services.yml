@@ -63,6 +63,21 @@ services:
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 
+  # Registration Spam Checker
+  Con2net\ContaoAntiSpamFormBundle\Service\RegistrationSpamChecker:
+    arguments:
+      $altchaService: '@con2net.antispam.altcha_service'
+    autowire: false
+
+  # Registration Spam Listener
+  Con2net\ContaoAntiSpamFormBundle\EventListener\RegistrationSpamListener:
+    arguments:
+      $requestStack: '@request_stack'
+      $scopeMatcher: '@contao.routing.scope_matcher'
+      $checker: '@Con2net\ContaoAntiSpamFormBundle\Service\RegistrationSpamChecker'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    autowire: false
+
   # Anti-SPAM Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\AntiSpamFormListener:
     arguments:
