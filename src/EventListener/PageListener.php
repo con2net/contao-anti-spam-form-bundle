@@ -5,9 +5,13 @@ declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\EventListener;
 
+use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Routing\ScopeMatcher;
 use Contao\FormModel;
+use Contao\ModuleModel;
+use Doctrine\DBAL\Exception as DbalException;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 
@@ -34,19 +38,41 @@ class PageListener
         'pl' => 'pl.js',
     ];
 
+    /**
+     * Frontend-Modultypen der Mitglieder-Registrierung (Core und NotificationCenter 2.x)
+     */
+    private const REGISTRATION_MODULE_TYPES = ['registration', 'registrationNotificationCenter'];
+
+    /**
+     * Cache-Merker: höchstens ein Logeintrag pro Stunde bei fehlender Migration
+     */
+    private const MIGRATION_LOG_CACHE_KEY = 'c2n_antispam_registration_migration_logged';
+    private const MIGRATION_LOG_INTERVAL = 3600;
+
     private RequestStack $requestStack;
     private ScopeMatcher $scopeMatcher;
     private ContaoFramework $framework;
+    private LoggingHelper $loggingHelper;
+    private CacheItemPoolInterface $cache;
+
+    /**
+     * Ergebnis der Registrierungs-Abfrage pro Request (null = noch nicht abgefragt)
+     */
+    private ?array $registrationFlags = null;
 
     public function __construct(
         RequestStack $requestStack,
         ScopeMatcher $scopeMatcher,
-        ContaoFramework $framework
+        ContaoFramework $framework,
+        LoggingHelper $loggingHelper,
+        CacheItemPoolInterface $cache
     )
     {
         $this->requestStack = $requestStack;
         $this->scopeMatcher = $scopeMatcher;
         $this->framework = $framework;
+        $this->loggingHelper = $loggingHelper;
+        $this->cache = $cache;
     }
 
     /**
@@ -55,14 +81,15 @@ class PageListener
     public function __invoke(RequestEvent $event): void
     {
         $request = $event->getRequest();
+        $this->registrationFlags = null;
 
         // Nur im Frontend
         if (!$this->scopeMatcher->isFrontendRequest($request)) {
             return;
         }
 
-        // Prüfen ob irgendein Formular Anti-SPAM aktiviert hat
-        $hasAntiSpam = $this->hasAntiSpamForms();
+        // Prüfen ob irgendein Formular oder Registrierungs-Modul Anti-SPAM aktiviert hat
+        $hasAntiSpam = $this->hasAntiSpamForms() || $this->hasAntiSpamRegistrations();
 
         if ($hasAntiSpam) {
             // CSS einbinden (OHNE |static für bessere Kompatibilität)
@@ -73,7 +100,7 @@ class PageListener
         }
 
         // ===== NEU: ALTCHA Assets laden (DSGVO-konform, lokal!) =====
-        $hasAltcha = $this->hasAltchaForms();
+        $hasAltcha = $this->hasAltchaForms() || $this->hasAltchaRegistrations();
 
         if ($hasAltcha) {
             // ALTCHA Library als ES Module laden (Web Component)
@@ -130,5 +157,94 @@ class PageListener
         );
 
         return $forms !== null && $forms->count() > 0;
+    }
+
+    /**
+     * Prüft ob es Registrierungs-Module mit aktiviertem Anti-SPAM gibt
+     */
+    private function hasAntiSpamRegistrations(): bool
+    {
+        return $this->getRegistrationFlags()['antispam'];
+    }
+
+    /**
+     * Prüft ob es Registrierungs-Module mit aktiviertem Anti-SPAM UND ALTCHA gibt
+     */
+    private function hasAltchaRegistrations(): bool
+    {
+        return $this->getRegistrationFlags()['altcha'];
+    }
+
+    /**
+     * Fragt die geschützten Registrierungs-Module einmal pro Request ab.
+     *
+     * Läuft bei jedem Seitenaufruf: Fehlen die tl_module-Spalten (Update ohne
+     * Datenbank-Migration), darf das keinen 500er auslösen. Dann wird eine
+     * Warnung geloggt (höchstens einmal pro Stunde) und so getan, als gäbe es
+     * keine geschützten Module.
+     *
+     * @return array{antispam: bool, altcha: bool}
+     */
+    private function getRegistrationFlags(): array
+    {
+        if (null !== $this->registrationFlags) {
+            return $this->registrationFlags;
+        }
+
+        $this->registrationFlags = ['antispam' => false, 'altcha' => false];
+
+        if (!$this->framework->isInitialized()) {
+            $this->framework->initialize();
+        }
+
+        $types = self::REGISTRATION_MODULE_TYPES;
+
+        try {
+            $modules = ModuleModel::findBy(
+                ['type IN (' . implode(',', array_fill(0, \count($types), '?')) . ')', 'c2n_enable_antispam=?'],
+                [...$types, 1]
+            );
+        } catch (DbalException $e) {
+            $this->logMissingMigration($e);
+
+            return $this->registrationFlags;
+        }
+
+        if (null === $modules) {
+            return $this->registrationFlags;
+        }
+
+        $this->registrationFlags['antispam'] = true;
+
+        foreach ($modules as $module) {
+            if ($module->c2n_enable_altcha) {
+                $this->registrationFlags['altcha'] = true;
+                break;
+            }
+        }
+
+        return $this->registrationFlags;
+    }
+
+    /**
+     * Loggt die fehlende Migration höchstens einmal pro Stunde, damit tl_log
+     * auf Seiten mit Traffic nicht vollläuft.
+     */
+    private function logMissingMigration(DbalException $e): void
+    {
+        $item = $this->cache->getItem(self::MIGRATION_LOG_CACHE_KEY);
+
+        if ($item->isHit()) {
+            return;
+        }
+
+        $item->set(true);
+        $item->expiresAfter(self::MIGRATION_LOG_INTERVAL);
+        $this->cache->save($item);
+
+        $this->loggingHelper->logError(
+            'Anti-SPAM: Registration settings could not be read (database migration pending?): ' . $e->getMessage(),
+            __METHOD__
+        );
     }
 }

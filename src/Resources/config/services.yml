@@ -76,6 +76,8 @@ services:
       $requestStack: '@request_stack'
       $scopeMatcher: '@contao.routing.scope_matcher'
       $framework: '@contao.framework'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+      $cache: '@cache.app'
     autowire: false
     tags:
       - { name: kernel.event_listener, event: kernel.request, priority: 20 }
