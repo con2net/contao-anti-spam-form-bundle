@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace Con2net\ContaoAntiSpamFormBundle\EventListener;
 
 use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
+use Con2net\ContaoAntiSpamFormBundle\Service\RegistrationReportMailer;
 use Con2net\ContaoAntiSpamFormBundle\Service\RegistrationSpamChecker;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
@@ -43,18 +44,21 @@ class RegistrationSpamListener
     private ScopeMatcher $scopeMatcher;
     private RegistrationSpamChecker $checker;
     private LoggingHelper $loggingHelper;
+    private RegistrationReportMailer $reportMailer;
 
     public function __construct(
         RequestStack $requestStack,
         ScopeMatcher $scopeMatcher,
         RegistrationSpamChecker $checker,
-        LoggingHelper $loggingHelper
+        LoggingHelper $loggingHelper,
+        RegistrationReportMailer $reportMailer
     )
     {
         $this->requestStack = $requestStack;
         $this->scopeMatcher = $scopeMatcher;
         $this->checker = $checker;
         $this->loggingHelper = $loggingHelper;
+        $this->reportMailer = $reportMailer;
     }
 
     /**
@@ -135,8 +139,11 @@ class RegistrationSpamListener
             }
         }
 
-        // "discard" und (bis zur Bericht-Funktion) "report": stillschweigend verwerfen
-        // und wie bei Erfolg weiterleiten
+        if ('report' === $module->c2n_spam_reaction) {
+            $this->reportMailer->send($module, $reason, $mainRequest);
+        }
+
+        // "discard" und "report": stillschweigend verwerfen und wie bei Erfolg weiterleiten
         throw new RedirectResponseException($this->getDiscardUrl($module, $mainRequest));
     }
 

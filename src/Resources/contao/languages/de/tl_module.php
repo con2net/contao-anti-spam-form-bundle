@@ -34,6 +34,11 @@ $GLOBALS['TL_LANG']['tl_module']['c2n_spam_reaction_options'] = [
     'report' => 'Bericht per E-Mail senden, dann still verwerfen'
 ];
 
+$GLOBALS['TL_LANG']['tl_module']['c2n_report_email'] = [
+    'Empfänger des Berichts',
+    'Eine oder mehrere E-Mail-Adressen (durch Komma getrennt). Absender ist die E-Mail-Adresse des Systemadministrators. Höchstens 10 Berichte pro Stunde.'
+];
+
 $GLOBALS['TL_LANG']['tl_module']['c2n_enable_altcha'] = [
     'ALTCHA aus Anti-SPAM Erweiterung verwenden',
     'Zeigt das ALTCHA Captcha der Anti-SPAM Erweiterung an und blendet dafür die Contao-Sicherheitsfrage aus. Unter Contao 4.13 bitte die Hinweise in der Hilfe beachten.'

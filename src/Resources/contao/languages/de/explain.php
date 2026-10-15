@@ -111,7 +111,11 @@ $GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
     [
         'Bericht per E-Mail senden, dann still verwerfen',
         'Wie "Still verwerfen", zusätzlich geht ein Bericht über die verworfene
-        Registrierung (ohne Passwort) an die konfigurierte(n) Adresse(n).'
+        Registrierung (ohne Passwort) als Nur-Text-Mail an die konfigurierte(n) Adresse(n).
+        Absender ist die E-Mail-Adresse des Systemadministrators. Pro Modul werden höchstens
+        10 Berichte pro Stunde verschickt, damit ein Bot-Angriff kein Postfach flutet. Darüber
+        hinaus wird nur mitgezählt, der nächste Bericht nennt die Anzahl. Der Text lässt sich
+        über das Template c2n_registration_abuse anpassen.'
     ],
     [
         'Wichtig',

@@ -71,6 +71,13 @@ services:
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 
+  # Registration Report Mailer
+  Con2net\ContaoAntiSpamFormBundle\Service\RegistrationReportMailer:
+    arguments:
+      $cache: '@cache.app'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    autowire: false
+
   # Registration Spam Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\RegistrationSpamListener:
     arguments:
@@ -78,6 +85,7 @@ services:
       $scopeMatcher: '@contao.routing.scope_matcher'
       $checker: '@Con2net\ContaoAntiSpamFormBundle\Service\RegistrationSpamChecker'
       $loggingHelper: '@con2net.antispam.logging_helper'
+      $reportMailer: '@Con2net\ContaoAntiSpamFormBundle\Service\RegistrationReportMailer'
     autowire: false
 
   # Anti-SPAM Listener

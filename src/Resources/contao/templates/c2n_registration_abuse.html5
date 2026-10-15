@@ -1,0 +1,31 @@
+<?php
+
+// Nur-Text-Mail an den Administrator (kein HTML). Alle Werte sind bereits bereinigt:
+// keine Steuerzeichen oder Zeilenumbrüche, gekürzt, ohne Passwörter.
+// Verfügbar: $lang, $moduleName, $moduleId, $reason, $time, $ip, $url, $userAgent,
+// $fields (Liste aus [Label, Wert]), $suppressed
+
+echo $lang['intro'] ?? 'The Anti-SPAM extension detected a registration as spam and discarded it. No member was created.', "\n\n";
+
+echo $lang['module'] ?? 'Module', ': ', $moduleName, ' (ID ', $moduleId, ")\n";
+echo $lang['reason'] ?? 'Reason', ': ', $reason, "\n";
+echo $lang['time'] ?? 'Time', ': ', $time, "\n";
+echo $lang['ip'] ?? 'IP address', ': ', $ip, "\n";
+echo $lang['url'] ?? 'Page', ': ', $url, "\n";
+echo $lang['userAgent'] ?? 'Browser', ': ', $userAgent, "\n\n";
+
+echo $lang['fields'] ?? 'Submitted data', ":\n";
+
+foreach ($fields as [$label, $value]) {
+    echo '- ', $label, ': ', $value, "\n";
+}
+
+if (!$fields) {
+    echo "-\n";
+}
+
+if ($suppressed > 0) {
+    echo "\n", sprintf($lang['suppressed'] ?? 'Since the last report, %d more spam registrations were discarded without a report.', $suppressed), "\n";
+}
+
+echo "\n", $lang['footer'] ?? 'Passwords are never included. The data comes from the sender and is unverified.', "\n";

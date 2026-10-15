@@ -16,6 +16,10 @@ $GLOBALS['TL_DCA']['tl_module']['palettes']['__selector__'][] = 'c2n_enable_anti
 $GLOBALS['TL_DCA']['tl_module']['subpalettes']['c2n_enable_antispam'] =
     'c2n_min_submit_time,c2n_max_submit_time,c2n_spam_reaction,c2n_enable_altcha,c2n_enable_ip_blacklist,c2n_debug';
 
+// Sub-Palette für die Spam-Reaktion "Bericht per E-Mail" (Select: Schlüssel <feld>_<wert>)
+$GLOBALS['TL_DCA']['tl_module']['palettes']['__selector__'][] = 'c2n_spam_reaction';
+$GLOBALS['TL_DCA']['tl_module']['subpalettes']['c2n_spam_reaction_report'] = 'c2n_report_email';
+
 // ===== Anti-SPAM Felder =====
 
 $GLOBALS['TL_DCA']['tl_module']['fields']['c2n_enable_antispam'] = [
@@ -66,10 +70,25 @@ $GLOBALS['TL_DCA']['tl_module']['fields']['c2n_spam_reaction'] = [
     'reference' => &$GLOBALS['TL_LANG']['tl_module']['c2n_spam_reaction_options'],
     'eval' => [
         'chosen' => true,
+        'submitOnChange' => true,
         'tl_class' => 'clr w50',
         'helpwizard' => true
     ],
     'sql' => "varchar(16) NOT NULL default 'error'"
+];
+
+$GLOBALS['TL_DCA']['tl_module']['fields']['c2n_report_email'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_module']['c2n_report_email'],
+    'exclude' => true,
+    'inputType' => 'text',
+    'eval' => [
+        'mandatory' => true,
+        'rgxp' => 'emails',
+        'maxlength' => 255,
+        'decodeEntities' => true,
+        'tl_class' => 'w50'
+    ],
+    'sql' => "varchar(255) NOT NULL default ''"
 ];
 
 $GLOBALS['TL_DCA']['tl_module']['fields']['c2n_enable_altcha'] = [

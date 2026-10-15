@@ -112,7 +112,11 @@ $GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
     [
         'Send a report by e-mail, then discard silently',
         'Like "Discard silently", but additionally a report about the discarded
-        registration (without password) is sent to the configured address(es).'
+        registration (without password) is sent as a plain-text e-mail to the configured
+        address(es). The sender is the system administrator\'s e-mail address. At most 10
+        reports per hour are sent per module, so a bot attack cannot flood a mailbox. Beyond
+        that, discarded registrations are only counted and the next report states the
+        number. The text can be customised via the template c2n_registration_abuse.'
     ],
     [
         'Important',
