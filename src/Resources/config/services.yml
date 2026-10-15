@@ -68,6 +68,7 @@ services:
     arguments:
       $altchaService: '@con2net.antispam.altcha_service'
       $ipBlacklistService: '@con2net.antispam.ip_blacklist_service'
+      $contentAnalysisService: '@con2net.antispam.content_analysis_service'
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 

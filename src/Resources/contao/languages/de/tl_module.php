@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 // ===== Legenden =====
 $GLOBALS['TL_LANG']['tl_module']['antispam_legend'] = 'Anti-SPAM Schutz';
+$GLOBALS['TL_LANG']['tl_module']['content_analysis_legend'] = 'Content-Analyse';
 
 // ===== Anti-SPAM Felder (Registrierung) =====
 
