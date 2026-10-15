@@ -14,7 +14,7 @@ declare(strict_types=1);
 // Sub-Palette wenn Anti-SPAM aktiviert
 $GLOBALS['TL_DCA']['tl_module']['palettes']['__selector__'][] = 'c2n_enable_antispam';
 $GLOBALS['TL_DCA']['tl_module']['subpalettes']['c2n_enable_antispam'] =
-    'c2n_min_submit_time,c2n_max_submit_time,c2n_spam_reaction,c2n_enable_altcha,c2n_debug';
+    'c2n_min_submit_time,c2n_max_submit_time,c2n_spam_reaction,c2n_enable_altcha,c2n_enable_ip_blacklist,c2n_debug';
 
 // ===== Anti-SPAM Felder =====
 
@@ -83,6 +83,16 @@ $GLOBALS['TL_DCA']['tl_module']['fields']['c2n_enable_altcha'] = [
         'helpwizard' => true
     ],
     'sql' => "char(1) NOT NULL default '1'"
+];
+
+$GLOBALS['TL_DCA']['tl_module']['fields']['c2n_enable_ip_blacklist'] = [
+    'label' => &$GLOBALS['TL_LANG']['tl_module']['c2n_enable_ip_blacklist'],
+    'exclude' => true,
+    'inputType' => 'checkbox',
+    'eval' => [
+        'tl_class' => 'w50 m12'
+    ],
+    'sql' => "char(1) NOT NULL default ''"
 ];
 
 $GLOBALS['TL_DCA']['tl_module']['fields']['c2n_debug'] = [

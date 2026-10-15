@@ -16,20 +16,33 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
  * Formular-Pfad (JS-Token -> Timestamp -> Honeypot -> Min-Zeit -> Max-Zeit), danach
  * ALTCHA. Feldwerte kommen direkt aus $_POST: Input::post() korrumpiert den
  * Base64-Payload von ALTCHA.
+ *
+ * StopForumSpam läuft als letzte Prüfung: Ein Bot, der schon lokal auffällt, löst
+ * keine externe Anfrage aus. Ist der Dienst nicht erreichbar, wird nicht blockiert.
  */
 class RegistrationSpamChecker
 {
     private AltchaService $altchaService;
+    private IpBlacklistService $ipBlacklistService;
+    private LoggingHelper $loggingHelper;
 
-    public function __construct(AltchaService $altchaService)
+    public function __construct(
+        AltchaService $altchaService,
+        IpBlacklistService $ipBlacklistService,
+        LoggingHelper $loggingHelper
+    )
     {
         $this->altchaService = $altchaService;
+        $this->ipBlacklistService = $ipBlacklistService;
+        $this->loggingHelper = $loggingHelper;
     }
 
     /**
+     * @param string|null $clientIp IP des Besuchers (vom Main-Request, nicht vom Fragment)
+     *
      * @return string|null Grund für den Spam-Verdacht, null wenn alles in Ordnung ist
      */
-    public function check(ModuleModel $module, ?SessionInterface $session): ?string
+    public function check(ModuleModel $module, ?SessionInterface $session, ?string $clientIp): ?string
     {
         if (null === $session) {
             return 'No session available';
@@ -75,6 +88,35 @@ class RegistrationSpamChecker
             if (!$this->altchaService->validate($payload)) {
                 return 'ALTCHA solution invalid';
             }
+        }
+
+        if ($module->c2n_enable_ip_blacklist) {
+            return $this->checkStopForumSpam($clientIp);
+        }
+
+        return null;
+    }
+
+    /**
+     * IP und E-Mail gegen StopForumSpam.com. Fail-open: Fehler blockieren nie.
+     */
+    private function checkStopForumSpam(?string $clientIp): ?string
+    {
+        try {
+            if (null !== $clientIp && '' !== $clientIp && $this->ipBlacklistService->isIpBlacklisted($clientIp)) {
+                return sprintf('IP %s is on StopForumSpam blacklist', $clientIp);
+            }
+
+            $email = $_POST['email'] ?? '';
+
+            if (\is_string($email) && '' !== ($email = trim($email)) && $this->ipBlacklistService->isEmailBlacklisted($email)) {
+                return sprintf('E-Mail %s is on StopForumSpam blacklist', $email);
+            }
+        } catch (\Throwable $e) {
+            $this->loggingHelper->logError(
+                sprintf('Anti-SPAM: StopForumSpam check failed, registration let through: %s', $e->getMessage()),
+                __METHOD__
+            );
         }
 
         return null;

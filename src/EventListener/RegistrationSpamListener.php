@@ -88,7 +88,7 @@ class RegistrationSpamListener
         }
 
         $session = $request->hasSession() ? $request->getSession() : null;
-        $reason = $this->checker->check($module, $session);
+        $reason = $this->checker->check($module, $session, $mainRequest->getClientIp());
 
         if (null === $reason) {
             if ($module->c2n_debug) {

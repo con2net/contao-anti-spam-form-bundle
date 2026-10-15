@@ -39,6 +39,11 @@ $GLOBALS['TL_LANG']['tl_module']['c2n_enable_altcha'] = [
     'Shows the ALTCHA captcha of the Anti-SPAM extension and hides the Contao security question instead. On Contao 4.13 please read the notes in the help.'
 ];
 
+$GLOBALS['TL_LANG']['tl_module']['c2n_enable_ip_blacklist'] = [
+    'Enable IP blacklist check',
+    'Checks the sender\'s IP address and e-mail against StopForumSpam.com. Both are transmitted to this external service (mind your privacy policy). The check runs only after all local checks and uses 24h caching. If the service is unreachable, the registration is not blocked. Whitelist IPs can be defined in config.yml.'
+];
+
 $GLOBALS['TL_LANG']['tl_module']['c2n_debug'] = [
     'Debug mode',
     'Writes detailed information about the SPAM check of this registration form to the Contao log.'
