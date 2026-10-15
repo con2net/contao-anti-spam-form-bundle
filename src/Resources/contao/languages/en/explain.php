@@ -105,7 +105,9 @@ $GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
         'Show an error message in the form',
         'The form is shown again with an error message, the input is kept. Recommended,
         because a real visitor immediately notices if a registration was wrongly
-        detected as SPAM.'
+        detected as SPAM. Exception: if the e-mail address belongs to a member who has
+        not been activated yet, the registration is discarded silently, because Contao
+        would otherwise resend the activation mail.'
     ],
     [
         'Send a report by e-mail, then discard silently',

@@ -104,7 +104,9 @@ $GLOBALS['TL_LANG']['XPL']['c2n_spam_reaction'] = [
         'Fehlermeldung am Formular anzeigen',
         'Das Formular wird mit einer Fehlermeldung erneut angezeigt, die Eingaben bleiben
         erhalten. Empfohlen, weil ein echter Besucher bei einer Fehlerkennung sofort merkt,
-        dass die Registrierung nicht geklappt hat.'
+        dass die Registrierung nicht geklappt hat. Ausnahme: Gehört die E-Mail-Adresse zu
+        einem noch nicht aktivierten Mitglied, wird still verworfen, weil Contao sonst die
+        Aktivierungsmail erneut verschicken würde.'
     ],
     [
         'Bericht per E-Mail senden, dann still verwerfen',

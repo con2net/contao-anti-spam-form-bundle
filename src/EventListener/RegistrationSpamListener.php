@@ -11,8 +11,11 @@ use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\CoreBundle\Exception\RedirectResponseException;
 use Contao\CoreBundle\Routing\ScopeMatcher;
+use Contao\Input;
+use Contao\MemberModel;
 use Contao\ModuleModel;
 use Contao\PageModel;
+use Contao\StringUtil;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -22,7 +25,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * Zentrale Prüfung im onload_callback von tl_member. Er läuft in
  * ModuleRegistration::compile() als Erstes, also vor dem Contao-Captcha, vor der
  * 4.13-Lücke beim erneuten Versand der Aktivierungsmail und vor dem Insert.
- * Spam wird verworfen, ohne dass ein Mitglied angelegt wird.
+ * Spam wird verworfen oder am Formular als Fehler gemeldet, ohne dass ein Mitglied
+ * angelegt wird.
  *
  * Der Callback läuft auch im Backend und in "Persönliche Daten" (tl_member_<ID>),
  * daher Filter auf Frontend und FORM_SUBMIT-Präfix tl_registration_.
@@ -32,6 +36,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 class RegistrationSpamListener
 {
     private const MODULE_TYPES = ['registration', 'registrationNotificationCenter'];
+    private const UPLOAD_INPUT_TYPES = ['upload', 'fileTree'];
     private const CHECKED_ATTRIBUTE = '_c2n_registration_checked';
 
     private RequestStack $requestStack;
@@ -114,8 +119,24 @@ class RegistrationSpamListener
 
         $this->loggingHelper->logError($message, __METHOD__);
 
-        // Bis zu Meilenstein 2 verhalten sich alle Spam-Reaktionen wie "discard":
-        // stillschweigend verwerfen und wie bei Erfolg weiterleiten.
+        if ('error' === $module->c2n_spam_reaction) {
+            // Die Prüfung auf eine Folge-Registrierung läuft in compile() vor jedem
+            // save_callback und verschickt die Aktivierungsmail erneut (4.13 und 5.3).
+            // In dem Fall ist ein Feldfehler zu spät, also still verwerfen.
+            if ($this->wouldResendActivationMail($module)) {
+                if ($module->c2n_debug) {
+                    $this->loggingHelper->logInfo(
+                        sprintf('Anti-SPAM: Registration module %d - e-mail belongs to an unactivated member, discarding instead of showing an error', $moduleId),
+                        __METHOD__
+                    );
+                }
+            } elseif ($this->addFieldError($module)) {
+                return;
+            }
+        }
+
+        // "discard" und (bis zur Bericht-Funktion) "report": stillschweigend verwerfen
+        // und wie bei Erfolg weiterleiten
         throw new RedirectResponseException($this->getDiscardUrl($module, $mainRequest));
     }
 
@@ -134,6 +155,63 @@ class RegistrationSpamListener
         if (null !== $request && $request->hasSession()) {
             $request->getSession()->remove(RegistrationMarkupListener::SESSION_KEY_PREFIX . (int) $module->id);
         }
+    }
+
+    /**
+     * Gleiche Bedingung wie die Folge-Registrierung in ModuleRegistration::compile().
+     * Das Modul von NC 2.x erzwingt reg_activate.
+     */
+    private function wouldResendActivationMail(ModuleModel $module): bool
+    {
+        if (!$module->reg_activate && 'registrationNotificationCenter' !== $module->type) {
+            return false;
+        }
+
+        $email = Input::post('email', true);
+
+        return $email && null !== MemberModel::findUnactivatedByEmail($email);
+    }
+
+    /**
+     * Hängt zur Laufzeit einen save_callback an die editierbaren Felder (ohne Uploads).
+     * Die Feldschleife in compile() liest das DCA erst nach dem onload_callback. Der
+     * erste Callback, der läuft, wirft: Contao macht daraus einen Fehler an diesem
+     * Feld und legt kein Mitglied an. Ein Callback läuft nur bei einem Feld ohne
+     * eigenen Fehler, sonst verhindert dieser Fehler den Insert ohnehin.
+     *
+     * @return bool false, wenn es kein passendes Feld gibt
+     */
+    private function addFieldError(ModuleModel $module): bool
+    {
+        $message = $GLOBALS['TL_LANG']['ERR']['c2nSpamBlocked']
+            ?? 'Your request could not be processed. Please try again later.';
+
+        $thrown = false;
+
+        $callback = static function ($value) use (&$thrown, $message) {
+            if ($thrown) {
+                return $value;
+            }
+
+            $thrown = true;
+
+            throw new \RuntimeException($message);
+        };
+
+        $added = false;
+
+        foreach (StringUtil::deserialize($module->editable, true) as $field) {
+            $config = $GLOBALS['TL_DCA']['tl_member']['fields'][$field] ?? null;
+
+            if (!\is_array($config) || \in_array($config['inputType'] ?? null, self::UPLOAD_INPUT_TYPES, true)) {
+                continue;
+            }
+
+            $GLOBALS['TL_DCA']['tl_member']['fields'][$field]['save_callback'][] = $callback;
+            $added = true;
+        }
+
+        return $added;
     }
 
     /**
