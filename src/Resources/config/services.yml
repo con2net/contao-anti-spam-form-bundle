@@ -56,6 +56,13 @@ services:
       $loggingHelper: '@con2net.antispam.logging_helper'
     autowire: false
 
+  # Registration Markup Listener
+  Con2net\ContaoAntiSpamFormBundle\EventListener\RegistrationMarkupListener:
+    arguments:
+      $requestStack: '@request_stack'
+      $loggingHelper: '@con2net.antispam.logging_helper'
+    autowire: false
+
   # Anti-SPAM Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\AntiSpamFormListener:
     arguments:
