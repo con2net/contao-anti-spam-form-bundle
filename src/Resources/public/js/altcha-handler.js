@@ -20,77 +20,96 @@
     }
 
     function init() {
-        // Alle ALTCHA Widgets finden
-        const widgets = document.querySelectorAll('altcha-widget[data-widget-id]');
+        // Delegiert in der Capture-Phase am document: erfasst auch Widgets, die erst
+        // später ins DOM kommen (z.B. Contao-AJAX-Formular ersetzt das <form> nach
+        // einem Validierungsfehler). Capture, weil die Widget-Events nicht bubbeln müssen.
+        document.addEventListener('statechange', onStateChange, true);
+        document.addEventListener('serververified', onServerVerified, true);
+        document.addEventListener('expired', onExpired, true);
 
-        if (widgets.length === 0) {
-            // Keine Widgets gefunden - nur im Debug-Modus warnen
-            if (isDebugMode()) {
-                console.warn('ALTCHA handler loaded but no widgets found');
-            }
+        if (isDebugMode()) {
+            console.log('ALTCHA handler initialized for ' + document.querySelectorAll('altcha-widget[data-widget-id]').length + ' widget(s)');
+        }
+    }
+
+    /**
+     * Liefert Widget, ID und Hidden Input zum Event, null wenn es kein Widget von uns ist
+     */
+    function resolve(ev) {
+        const widget = ev.target instanceof Element ? ev.target.closest('altcha-widget[data-widget-id]') : null;
+
+        if (!widget) {
+            return null;
+        }
+
+        const widgetId = widget.getAttribute('data-widget-id');
+        const hiddenInput = document.getElementById('ctrl_' + widgetId);
+
+        if (!hiddenInput) {
+            // Fehler IMMER loggen (auch ohne Debug)
+            console.error('ALTCHA: Hidden input not found for widget ' + widgetId);
+            return null;
+        }
+
+        return { widgetId: widgetId, hiddenInput: hiddenInput, debugMode: widget.hasAttribute('data-debug') };
+    }
+
+    // State-Change Event (Challenge-Status ändert sich)
+    function onStateChange(ev) {
+        const ctx = resolve(ev);
+
+        if (!ctx) {
             return;
         }
 
-          if (isDebugMode()) {
-            console.log('ALTCHA handler initialized for ' + widgets.length + ' widget(s)');
+        // Nur im Debug-Modus State-Changes loggen
+        if (ctx.debugMode) {
+            console.log('ALTCHA State [' + ctx.widgetId + ']:', ev.detail.state);
         }
 
-        // Event-Handler für jedes Widget einrichten
-        widgets.forEach(function(widget) {
-            const widgetId = widget.getAttribute('data-widget-id');
-            const hiddenInput = document.getElementById('ctrl_' + widgetId);
-            const debugMode = widget.hasAttribute('data-debug');
+        if (ev.detail.state === 'verified') {
+            // Challenge erfolgreich gelöst
+            ctx.hiddenInput.value = ev.detail.payload;
 
-            if (!hiddenInput) {
-                // Fehler IMMER loggen (auch ohne Debug)
-                console.error('ALTCHA: Hidden input not found for widget ' + widgetId);
-                return;
+            if (ctx.debugMode) {
+                console.log('ALTCHA verified [' + ctx.widgetId + ']', {
+                    time: ev.detail.time || 'unknown'
+                });
             }
+        } else if (ev.detail.state === 'error') {
+            // Fehler IMMER loggen (auch ohne Debug)
+            console.error('ALTCHA error [' + ctx.widgetId + ']:', ev.detail.error);
+            ctx.hiddenInput.value = '';
+        } else if (ev.detail.state === 'verifying') {
+            if (ctx.debugMode) {
+                console.log('ALTCHA verifying [' + ctx.widgetId + ']...');
+            }
+        } else if (ev.detail.state === 'unverified') {
+            // Challenge zurückgesetzt
+            ctx.hiddenInput.value = '';
+        }
+    }
 
-            // State-Change Event (Challenge-Status ändert sich)
-            widget.addEventListener('statechange', function(ev) {
-                // Nur im Debug-Modus State-Changes loggen
-                if (debugMode) {
-                    console.log('ALTCHA State [' + widgetId + ']:', ev.detail.state);
-                }
+    // Server-Verified Event (optional, wenn Server-Validierung aktiviert)
+    function onServerVerified(ev) {
+        const ctx = resolve(ev);
 
-                if (ev.detail.state === 'verified') {
-                    // Challenge erfolgreich gelöst
-                    hiddenInput.value = ev.detail.payload;
+        if (ctx && ctx.debugMode) {
+            console.log('ALTCHA server-verified [' + ctx.widgetId + ']');
+        }
+    }
 
-                    if (debugMode) {
-                        console.log('ALTCHA verified [' + widgetId + ']', {
-                            time: ev.detail.time || 'unknown'
-                        });
-                    }
-                } else if (ev.detail.state === 'error') {
-                    // Fehler IMMER loggen (auch ohne Debug)
-                    console.error('ALTCHA error [' + widgetId + ']:', ev.detail.error);
-                    hiddenInput.value = '';
-                } else if (ev.detail.state === 'verifying') {
-                    if (debugMode) {
-                        console.log('ALTCHA verifying [' + widgetId + ']...');
-                    }
-                } else if (ev.detail.state === 'unverified') {
-                    // Challenge zurückgesetzt
-                    hiddenInput.value = '';
-                }
-            });
+    // Expired Event (Challenge abgelaufen)
+    function onExpired(ev) {
+        const ctx = resolve(ev);
 
-            // Server-Verified Event (optional, wenn Server-Validierung aktiviert)
-            widget.addEventListener('serververified', function(ev) {
-                if (debugMode) {
-                    console.log('ALTCHA server-verified [' + widgetId + ']');
-                }
-            });
+        if (!ctx) {
+            return;
+        }
 
-            // Expired Event (Challenge abgelaufen)
-            widget.addEventListener('expired', function(ev) {
-                // Expired IMMER warnen (auch ohne Debug)
-                console.warn('ALTCHA challenge expired [' + widgetId + ']');
-                hiddenInput.value = '';
-            });
-        });
+        // Expired IMMER warnen (auch ohne Debug)
+        console.warn('ALTCHA challenge expired [' + ctx.widgetId + ']');
+        ctx.hiddenInput.value = '';
     }
 
     /**

@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Help text of the content-analysis threshold** (`c2n_content_spam_threshold`) described the
   effect of higher/lower values the wrong way round (DE/EN). Fix #10.
+- **ALTCHA in AJAX forms**: after a validation error, Contao's AJAX form replaces the
+  `<form>` element, and `altcha-handler.js` no longer copied the solved payload into the
+  hidden field, so every re-submit failed the ALTCHA check. The handler now listens on
+  `document` (capture phase) and also covers widgets that are added later.
 
 ---
 
