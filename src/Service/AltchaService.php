@@ -23,6 +23,7 @@ use AltchaOrg\Altcha\V1\Altcha as AltchaV1;
 use AltchaOrg\Altcha\V1\ChallengeOptions as ChallengeOptionsV1;
 use AltchaOrg\Altcha\V1\Hasher\Algorithm as AlgorithmV1;
 use Contao\Database;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -45,6 +46,10 @@ use Psr\Log\LoggerInterface;
  *   'SHA-384'       → SHA-384 legacy (V1 format, backwards compatible)
  *   'SHA-512'       → SHA-512 legacy (V1 format, backwards compatible)
  *
+ * Replay protection: challenges expire after CHALLENGE_LIFETIME seconds, and a solved
+ * challenge is accepted only once (its signature is remembered in the cache until it
+ * expires).
+ *
  * @author con2net webServices
  */
 class AltchaService
@@ -52,22 +57,27 @@ class AltchaService
     private const BUNDLE = 'antispam';
     private const KEY_HMAC = 'altcha_hmac_key';
     private const LEGACY_SHA_ALGORITHMS = ['sha-256', 'sha-384', 'sha-512'];
+    private const CHALLENGE_LIFETIME = 7200;
+    private const USED_CACHE_PREFIX = 'c2n_altcha_used_';
 
     private ?string $hmacKey;
     private string $algorithmName;
     private ?LoggerInterface $logger;
     private ?LoggingHelper $loggingHelper;
+    private ?CacheItemPoolInterface $cache;
 
     public function __construct(
         ?string $hmacKey = null,
         ?LoggerInterface $logger = null,
         ?LoggingHelper $loggingHelper = null,
-        string $algorithmName = 'pbkdf2'
+        string $algorithmName = 'pbkdf2',
+        ?CacheItemPoolInterface $cache = null
     ) {
         $this->hmacKey = $hmacKey;
         $this->logger = $logger;
         $this->loggingHelper = $loggingHelper;
         $this->algorithmName = $algorithmName;
+        $this->cache = $cache;
     }
 
     /**
@@ -279,6 +289,13 @@ class AltchaService
                 $v1 = new AltchaV1($this->getHmacKey());
                 $result = $v1->verifySolution($base64Payload);
 
+                if ($result && !$this->consumeChallenge(
+                    (string) ($data['signature'] ?? ''),
+                    $this->getV1ExpiresAt((string) ($data['salt'] ?? ''))
+                )) {
+                    return false;
+                }
+
                 if ($result) {
                     if ($this->loggingHelper) {
                         $this->loggingHelper->logInfo(
@@ -306,6 +323,13 @@ class AltchaService
                 payload: $payload,
                 algorithm: $algorithm,
             ));
+
+            if ($result->verified && !$this->consumeChallenge(
+                (string) $payload->challenge->signature,
+                $payload->challenge->parameters->expiresAt
+            )) {
+                return false;
+            }
 
             if ($result->verified) {
                 if ($this->loggingHelper) {
@@ -345,6 +369,61 @@ class AltchaService
     }
 
     /**
+     * Accepts a verified challenge only once and only if it carries an expiry.
+     *
+     * The signature is remembered until the challenge expires. Without a cache the
+     * check is skipped (behaviour as before), a cache error does not block the user.
+     * $expiresAt is int|float since altcha-org/altcha 2.3, 0 means "no expiry" there.
+     */
+    private function consumeChallenge(string $signature, int|float|null $expiresAt): bool
+    {
+        if (!$expiresAt || '' === $signature) {
+            if ($this->loggingHelper) {
+                $this->loggingHelper->logError('ALTCHA FAILED: Challenge without expiry', __METHOD__);
+            }
+            return false;
+        }
+
+        if (null === $this->cache) {
+            return true;
+        }
+
+        try {
+            $item = $this->cache->getItem(self::USED_CACHE_PREFIX . hash('sha256', $signature));
+
+            if ($item->isHit()) {
+                if ($this->loggingHelper) {
+                    $this->loggingHelper->logError('ALTCHA FAILED: Payload already used (replay)', __METHOD__);
+                }
+                return false;
+            }
+
+            $item->set(true);
+            $item->expiresAfter(max(1, (int) ceil($expiresAt - time())));
+            $this->cache->save($item);
+
+        } catch (\Throwable $e) {
+            if ($this->logger) {
+                $this->logger->error('ALTCHA replay check failed: ' . $e->getMessage(), [
+                    'exception' => get_class($e),
+                ]);
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Reads the expiry of a V1 challenge from its salt ("<salt>?expires=<timestamp>").
+     */
+    private function getV1ExpiresAt(string $salt): ?int
+    {
+        parse_str(explode('?', $salt, 2)[1] ?? '', $params);
+
+        return isset($params['expires']) && is_numeric($params['expires']) ? (int) $params['expires'] : null;
+    }
+
+    /**
      * Creates an ALTCHA challenge.
      *
      * Legacy SHA (SHA-256/384/512): returns V1 flat format for backwards compatibility.
@@ -353,7 +432,7 @@ class AltchaService
      * @param int $maxNumber Challenge difficulty (maps to PBKDF2 iterations / SHA max number)
      * @param int $saltLength Salt length (only used for legacy SHA algorithms)
      * @param string $algorithmName NOT USED - algorithm is set via constructor/config
-     * @param int|null $expires NOT USED - kept for backwards compatibility
+     * @param int|null $expires NOT USED - kept for backwards compatibility (see CHALLENGE_LIFETIME)
      * @return array Challenge data as array for JSON output, empty array on error
      */
     public function createChallenge(
@@ -370,6 +449,7 @@ class AltchaService
                     algorithm: $this->resolveV1Algorithm(),
                     maxNumber: $maxNumber,
                     saltLength: $saltLength,
+                    expires: new \DateTimeImmutable('+' . self::CHALLENGE_LIFETIME . ' seconds'),
                 );
                 $v1Challenge = $v1->createChallenge($v1Options);
 
@@ -395,6 +475,7 @@ class AltchaService
             $options = new CreateChallengeOptions(
                 algorithm: $algorithm,
                 cost: $maxNumber,
+                expiresAt: time() + self::CHALLENGE_LIFETIME,
             );
 
             $challenge = $altcha->createChallenge($options);

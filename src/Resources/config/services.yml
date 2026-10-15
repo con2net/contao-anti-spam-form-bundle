@@ -18,6 +18,7 @@ services:
       $logger: '@logger'
       $loggingHelper: '@con2net.antispam.logging_helper'
       $algorithmName: '%con2net.antispam.altcha.algorithm%'
+      $cache: '@cache.app'
     public: true
     autowire: false
 

@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 ## [1.3.0] - unreleased
 
+### Security
+- **ALTCHA payloads can no longer be replayed.** A solved challenge was accepted again and
+  again. Challenges now expire after 2 hours, and each solved challenge is accepted only once
+  (remembered in the application cache until it expires). Applies to forms and registration
+  modules. Forms that were opened before the update ask once for a new ALTCHA.
+
 ### Fixed
 - **Help text of the content-analysis threshold** (`c2n_content_spam_threshold`) described the
   effect of higher/lower values the wrong way round (DE/EN). Fix #10.
