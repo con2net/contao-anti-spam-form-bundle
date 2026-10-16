@@ -19,6 +19,9 @@ All notable changes to this project will be documented in this file.
   `<form>` element, and `altcha-handler.js` no longer copied the solved payload into the
   hidden field, so every re-submit failed the ALTCHA check. The handler now listens on
   `document` (capture phase) and also covers widgets that are added later.
+- **Browser cache of the ALTCHA widget**: `altcha.min.js` and its language packs are now
+  loaded with a `?v=` version parameter (same scheme as Contao's own scripts), so browsers
+  pick up a new widget version after an update.
 
 ---
 

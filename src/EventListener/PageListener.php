@@ -104,7 +104,7 @@ class PageListener
 
         if ($hasAltcha) {
             // ALTCHA Library als ES Module laden (Web Component)
-            $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js"></script>';
+            $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js' . $this->getAssetVersion('js/altcha.min.js') . '"></script>';
 
             // Alle vendorten ALTCHA-Sprachpakete laden (offizielle
             // Übersetzungen, registrieren sich selbst im Widget-eigenen
@@ -115,7 +115,7 @@ class PageListener
             // Request-Zyklus ist $request->getLocale() ohnehin noch nicht
             // zuverlässig die tatsächliche Seitensprache).
             foreach (self::ALTCHA_I18N_FILES as $file) {
-                $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . '"></script>';
+                $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . $this->getAssetVersion('js/i18n/' . $file) . '"></script>';
             }
 
             // ALTCHA Event-Handler (normales Script)
@@ -124,6 +124,17 @@ class PageListener
             // ALTCHA Styles (OHNE |static)
             $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/altcha-styles.css';
         }
+    }
+
+    /**
+     * Versionsparameter für Module-Scripts in TL_HEAD, gleiches Schema wie
+     * Template::generateScriptTag() bei TL_JAVASCRIPT (dort automatisch).
+     */
+    private function getAssetVersion(string $path): string
+    {
+        $mtime = @filemtime(__DIR__ . '/../Resources/public/' . $path);
+
+        return false === $mtime ? '' : '?v=' . substr(md5((string) $mtime), 0, 8);
     }
 
     /**
