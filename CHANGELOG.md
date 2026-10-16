@@ -24,6 +24,9 @@ All notable changes to this project will be documented in this file.
 - **Browser cache of the ALTCHA widget**: `altcha.min.js` and its language packs are now
   loaded with a `?v=` version parameter (same scheme as Contao's own scripts), so browsers
   pick up a new widget version after an update.
+- **Fresh installations no longer return HTTP 500 on every page until `contao:migrate` has
+  run.** The asset check queried the new `tl_form` columns unguarded. Until the migration has
+  run, the bundle now logs a warning (at most once per hour) and loads no assets.
 
 ---
 

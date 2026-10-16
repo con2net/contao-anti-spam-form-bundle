@@ -147,7 +147,15 @@ class PageListener
             $this->framework->initialize();
         }
 
-        $forms = FormModel::findBy(['c2n_enable_antispam=?'], [1]);
+        // Fehlende tl_form-Spalten (Installation ohne Migration) dürfen keinen 500er auslösen
+        try {
+            $forms = FormModel::findBy(['c2n_enable_antispam=?'], [1]);
+        } catch (DbalException $e) {
+            $this->logMissingMigration($e);
+
+            return false;
+        }
+
         return $forms !== null && $forms->count() > 0;
     }
 
@@ -162,10 +170,16 @@ class PageListener
         }
 
         // Formulare mit Anti-SPAM UND ALTCHA aktiviert
-        $forms = FormModel::findBy(
-            ['c2n_enable_antispam=?', 'c2n_enable_altcha=?'],
-            [1, 1]
-        );
+        try {
+            $forms = FormModel::findBy(
+                ['c2n_enable_antispam=?', 'c2n_enable_altcha=?'],
+                [1, 1]
+            );
+        } catch (DbalException $e) {
+            $this->logMissingMigration($e);
+
+            return false;
+        }
 
         return $forms !== null && $forms->count() > 0;
     }
@@ -254,7 +268,7 @@ class PageListener
         $this->cache->save($item);
 
         $this->loggingHelper->logError(
-            'Anti-SPAM: Registration settings could not be read (database migration pending?): ' . $e->getMessage(),
+            'Anti-SPAM: Settings could not be read (database migration pending?): ' . $e->getMessage(),
             __METHOD__
         );
     }
