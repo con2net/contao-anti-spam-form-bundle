@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [1.3.0] - unreleased
+## [1.3.0] - 2026-10-16
 
 ### Added
 - **Spam protection for member registration** (front end module "Registration", and
@@ -41,7 +41,8 @@ All notable changes to this project will be documented in this file.
   pick up a new widget version after an update.
 - **Fresh installations no longer return HTTP 500 on every page until `contao:migrate` has
   run.** The asset check queried the new `tl_form` columns unguarded. Until the migration has
-  run, the bundle now logs a warning (at most once per hour) and loads no assets.
+  run, the bundle now writes an ERROR entry to the system log (at most once per hour) and
+  loads no assets.
 
 ---
 

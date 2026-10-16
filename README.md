@@ -186,7 +186,7 @@ TRUSTED_PROXIES=192.0.2.1
 TRUSTED_PROXIES=192.0.2.1,198.51.100.0/24
 ```
 
-Details siehe [Contao-Handbuch: TRUSTED_PROXIES](https://docs.contao.org/manual/de/system/einstellungen/#trusted-proxies).
+Details siehe [Contao-Handbuch: TRUSTED_PROXIES](https://docs.contao.org/5.x/manual/de/system/einstellungen/#trusted-proxies) und [Symfony-Dokumentation: Proxies](https://symfony.com/doc/current/deployment/proxies.html).
 
 Ohne diese Einstellung sieht das Bundle hinter einem Proxy nur die IP des Proxys:
 - Die **IP-Blacklist** prüft dann die IP des Proxys statt die des Besuchers.

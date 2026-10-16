@@ -1,8 +1,8 @@
 {
   "name": "con2net/contao-anti-spam-form-bundle",
   "type": "contao-bundle",
-  "description": "Umfassendes Anti-SPAM Bundle für Contao Formulare mit ALTCHA Captcha, IP-Blacklist, Content-Analyse und Multi-Layer-Schutz",
-  "keywords": ["contao", "spam", "protection", "altcha", "captcha", "honeypot", "blacklist", "forms"],
+  "description": "Multi-Layer Anti-SPAM für Contao Formulare und Mitglieder-Registrierung mit ALTCHA, IP-Blacklist und Content-Analyse",
+  "keywords": ["contao", "spam", "protection", "altcha", "captcha", "honeypot", "blacklist", "forms", "registration", "registrierung", "member"],
   "license": "MIT",
   "authors": [
     {
