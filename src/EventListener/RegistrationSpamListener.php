@@ -24,8 +24,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * Registration Spam Listener
  *
  * Zentrale Prüfung im onload_callback von tl_member. Er läuft in
- * ModuleRegistration::compile() als Erstes, also vor dem Contao-Captcha, vor der
- * 4.13-Lücke beim erneuten Versand der Aktivierungsmail und vor dem Insert.
+ * ModuleRegistration::compile() als Erstes, also vor dem Contao-Captcha, vor dem
+ * erneuten Versand der Aktivierungsmail und vor dem Insert.
  * Spam wird verworfen oder am Formular als Fehler gemeldet, ohne dass ein Mitglied
  * angelegt wird.
  *
@@ -125,7 +125,7 @@ class RegistrationSpamListener
 
         if ('error' === $module->c2n_spam_reaction) {
             // Die Prüfung auf eine Folge-Registrierung läuft in compile() vor jedem
-            // save_callback und verschickt die Aktivierungsmail erneut (4.13 und 5.3).
+            // save_callback und verschickt die Aktivierungsmail erneut (alle Versionen).
             // In dem Fall ist ein Feldfehler zu spät, also still verwerfen.
             if ($this->wouldResendActivationMail($module)) {
                 if ($module->c2n_debug) {
