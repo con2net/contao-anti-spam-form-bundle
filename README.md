@@ -36,6 +36,7 @@ Das Bundle kombiniert **7 verschiedene Schutzebenen**, die einzeln aktiviert und
 
 ### Highlights
 
+- **Mitglieder-Registrierung** - Derselbe Schutz auch für das Contao-Registrierungsmodul (ab 1.3.0)
 - **Feldbasierte Content-Analyse** - Wähle für jeden Test die zu prüfenden Felder aus
 - **Score-basiertes System** - Konfigurierbare Schwellwerte für flexible SPAM-Erkennung
 - **DSGVO-konform** - Keine externen Tracking-Skripte, Daten bleiben auf dem Server
@@ -173,7 +174,25 @@ contao_anti_spam_form:
       # - '10.0.0.0/8'      # Firmen-VPN (Beispiel)
 ```
 
-> **Hinweis bei Proxy oder CDN (z.B. Cloudflare, Load Balancer):** Die IP des Besuchers wird über Contao/Symfony ermittelt. Header wie `X-Forwarded-For` werden nur von vertrauenswürdigen Proxys übernommen, sonst könnte ein Bot seine IP fälschen. Läuft die Website hinter einem Proxy, tragen Sie dessen IP-Adressen in der `.env.local` als `TRUSTED_PROXIES` ein. Ohne diese Einstellung prüft die IP-Blacklist die IP des Proxys statt die des Besuchers.
+#### Website hinter Proxy oder CDN (z.B. Cloudflare, Load Balancer)
+
+Die IP des Besuchers wird über Contao/Symfony ermittelt. Header wie `X-Forwarded-For` werden nur von vertrauenswürdigen Proxys übernommen, sonst könnte ein Bot einfach eine "saubere" IP mitschicken. Läuft die Website hinter einem Proxy, trage dessen IP-Adressen bzw. IP-Bereiche in der `.env.local` ein (mehrere Werte durch Komma getrennt):
+
+```bash
+# Ein einzelner Proxy
+TRUSTED_PROXIES=192.0.2.1
+
+# Oder mehrere Adressen bzw. ganze Bereiche (z.B. die IP-Bereiche deines CDN-Anbieters)
+TRUSTED_PROXIES=192.0.2.1,198.51.100.0/24
+```
+
+Details siehe [Contao-Handbuch: TRUSTED_PROXIES](https://docs.contao.org/manual/de/system/einstellungen/#trusted-proxies).
+
+Ohne diese Einstellung sieht das Bundle hinter einem Proxy nur die IP des Proxys:
+- Die **IP-Blacklist** prüft dann die IP des Proxys statt die des Besuchers.
+- Die **IP-Whitelist** (`whitelist` oben) greift dann nicht mehr für eigene IPs, weil nie die eigene IP ankommt, sondern immer die des Proxys.
+
+> **Achtung:** `TRUSTED_PROXIES=REMOTE_ADDR` (vertraut jedem direkten Gegenüber) ist nur sicher, wenn der Server **ausschließlich** über den Proxy erreichbar ist. Ist er auch direkt aus dem Internet erreichbar, kann ein Bot damit wieder eine beliebige IP vortäuschen. Trage im Zweifel lieber die konkreten IP-Bereiche des Proxys ein.
 
 ---
 
@@ -312,6 +331,37 @@ noch dorthin. Details und Anwendungsfälle dazu im nächsten Abschnitt.
 
 ---
 
+## Mitglieder-Registrierung schützen
+
+Ab Version 1.3.0 schützt das Bundle auch das Contao-Frontend-Modul **Registrierung** (sowie das Modul **Registrierung (Notification Center)** des Notification Center 2.x).
+
+**Backend → Themes → Frontend-Module → [Dein Registrierungsmodul] → Anti-SPAM Schutz**
+
+Der Schutz ist standardmäßig **deaktiviert**, bestehende Registrierungsmodule verhalten sich nach dem Update also unverändert.
+
+### Einstellungen
+
+- **Anti-SPAM Schutz aktivieren** - Hauptschalter. JavaScript-Token, Honeypot und Zeitprüfung sind damit automatisch aktiv, es müssen keine zusätzlichen Felder angelegt werden.
+- **Minimale / Maximale Absende-Zeit** - wie bei Formularen
+- **Reaktion bei SPAM**
+  - **Still verwerfen** - der Besucher wird wie nach einer erfolgreichen Registrierung weitergeleitet
+  - **Fehlermeldung am Formular anzeigen** (Standard) - das Formular erscheint erneut mit einer Fehlermeldung, ein echter Besucher merkt so sofort, dass etwas nicht geklappt hat
+  - **Bericht per E-Mail senden, dann still verwerfen** - ein Bericht (ohne Passwort) geht als Nur-Text-Mail an die angegebene(n) Adresse(n), höchstens 10 pro Stunde und Modul. Absender ist die E-Mail-Adresse des Systemadministrators, der Text lässt sich über das Template `c2n_registration_abuse` anpassen.
+- **ALTCHA aus Anti-SPAM Erweiterung verwenden** (Standard: an) - ersetzt die Contao-Sicherheitsfrage durch das ALTCHA-Widget
+- **IP-Blacklist Check aktivieren** - prüft IP-Adresse **und** E-Mail-Adresse gegen StopForumSpam.com (beide werden an diesen Dienst übermittelt, Datenschutzerklärung beachten)
+- **Debug-Modus** - ausführliche Logs
+- **Content-Analyse** - dieselben Tests wie bei Formularen, die Feldauswahl bietet die im Modul ausgewählten Felder an. Passwörter werden nie analysiert.
+
+In allen Fällen wird bei SPAM **kein Mitglied angelegt** und keine E-Mail an den Besucher verschickt.
+
+### Hinweise
+
+- **"Spam-Schutz deaktivieren" (Contao)** im Abschnitt "Modul-Konfiguration" schaltet nur die Contao-Sicherheitsfrage ab, **nicht** den Schutz dieser Erweiterung. Der wird ausschließlich über "Anti-SPAM Schutz aktivieren" gesteuert.
+- **Contao 4.13:** Ist das Registrierungsmodul über ein Inhaltselement vom Typ "Modul" in einen Artikel eingebunden, kann die Contao-Sicherheitsfrage nicht automatisch ausgeblendet werden, dann erscheinen beide Captchas. Setze in diesem Fall im Modul zusätzlich den Haken "Spam-Schutz deaktivieren". Unter Contao 5 ist das nicht nötig.
+- **Bereits registrierte, noch nicht aktivierte E-Mail-Adresse:** Im Modus "Fehlermeldung" wird in diesem Fall still verworfen, weil Contao sonst die Aktivierungsmail erneut verschicken würde.
+
+---
+
 ## Empfehlungen / Best Practices
 
 ### Verhalten bei SPAM "Eingaben"
@@ -414,6 +464,8 @@ Services:
   - IpBlacklistService    (StopForumSpam.com API)
   - ContentAnalysisService(Pattern-Matching)
   - LoggingHelper         (Unified Logging)
+  - RegistrationSpamChecker  (SPAM-Checks der Mitglieder-Registrierung)
+  - RegistrationReportMailer (Bericht per E-Mail, gedrosselt)
 
 Listener:
   - FormLoadListener        (Session-Timestamp)
@@ -422,6 +474,10 @@ Listener:
   - PageListener            (CSS/JS Assets)
   - Notification/AbuseEmailNcV1Listener (NotificationCenter 1.x: Empfänger-Umleitung)
   - Notification/AbuseEmailNcV2Listener (NotificationCenter 2.x: Empfänger-Umleitung)
+  - RegistrationPaletteListener (Einstellungen in tl_module)
+  - RegistrationMarkupListener  (Honeypot, ALTCHA und Session-Timestamp im Registrierungsformular)
+  - RegistrationCaptchaListener (blendet die Contao-Sicherheitsfrage aus, wenn ALTCHA aktiv ist)
+  - RegistrationSpamListener    (Prüfung vor dem Anlegen des Mitglieds)
 
 Widgets:
   - AltchaFormField       (ALTCHA Captcha)

@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 
 ## [1.3.0] - unreleased
 
+### Added
+- **Spam protection for member registration** (front end module "Registration", and
+  "Registration (Notification Center)" from NotificationCenter 2.x). Off by default, so
+  existing modules behave as before. Same layers as for forms: JS token, honeypot, time
+  check, ALTCHA (replaces the Contao security question), StopForumSpam (IP and e-mail) and
+  content analysis. The check runs before the member is created. Spam reaction per module:
+  discard silently, error message in the form (default), or e-mail report and discard
+  (at most 10 reports per hour, template `c2n_registration_abuse`).
+
 ### Security
 - **ALTCHA payloads can no longer be replayed.** A solved challenge was accepted again and
   again. Challenges now expire after 2 hours, and each solved challenge is accepted only once
