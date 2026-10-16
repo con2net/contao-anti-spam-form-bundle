@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
   again. Challenges now expire after 2 hours, and each solved challenge is accepted only once
   (remembered in the application cache until it expires). Applies to forms and registration
   modules. Forms that were opened before the update ask once for a new ALTCHA.
+- **Requires `altcha-org/altcha` ^2.1** (was ^2.0). Versions 2.0.0 to 2.0.2 of the library
+  accepted payloads without a challenge signature (fixed upstream in 2.0.3).
 
 ### Fixed
 - **Help text of the content-analysis threshold** (`c2n_content_spam_threshold`) described the
