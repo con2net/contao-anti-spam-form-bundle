@@ -560,39 +560,14 @@ class AntiSpamFormListener
     }
 
     /**
-     * Ermittelt die User-IP
+     * Ermittelt die User-IP über Request::getClientIp(): Proxy-Header (X-Forwarded-For usw.)
+     * zählen nur von Proxys aus TRUSTED_PROXIES, sonst könnte ein Bot seine IP fälschen.
      */
     private function getUserIp(): string
     {
-        $request = $this->requestStack->getCurrentRequest();
+        $request = $this->requestStack->getMainRequest() ?? $this->requestStack->getCurrentRequest();
 
-        if (!$request) {
-            return '127.0.0.1';
-        }
-
-        $headers = [
-            'HTTP_CF_CONNECTING_IP',
-            'HTTP_X_FORWARDED_FOR',
-            'HTTP_X_REAL_IP',
-            'REMOTE_ADDR'
-        ];
-
-        foreach ($headers as $header) {
-            $value = $request->server->get($header);
-
-            if (!empty($value)) {
-                if ($header === 'HTTP_X_FORWARDED_FOR') {
-                    $ips = explode(',', $value);
-                    $value = trim($ips[0]);
-                }
-
-                if (filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $value;
-                }
-            }
-        }
-
-        return $request->server->get('REMOTE_ADDR', '127.0.0.1');
+        return $request?->getClientIp() ?? '127.0.0.1';
     }
 
     /**

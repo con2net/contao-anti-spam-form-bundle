@@ -173,6 +173,8 @@ contao_anti_spam_form:
       # - '10.0.0.0/8'      # Firmen-VPN (Beispiel)
 ```
 
+> **Hinweis bei Proxy oder CDN (z.B. Cloudflare, Load Balancer):** Die IP des Besuchers wird über Contao/Symfony ermittelt. Header wie `X-Forwarded-For` werden nur von vertrauenswürdigen Proxys übernommen, sonst könnte ein Bot seine IP fälschen. Läuft die Website hinter einem Proxy, tragen Sie dessen IP-Adressen in der `.env.local` als `TRUSTED_PROXIES` ein. Ohne diese Einstellung prüft die IP-Blacklist die IP des Proxys statt die des Besuchers.
+
 ---
 
 ## Verwendung

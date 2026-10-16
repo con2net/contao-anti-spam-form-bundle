@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file.
   modules. Forms that were opened before the update ask once for a new ALTCHA.
 - **Requires `altcha-org/altcha` ^2.1** (was ^2.0). Versions 2.0.0 to 2.0.2 of the library
   accepted payloads without a challenge signature (fixed upstream in 2.0.3).
+- **IP blacklist check in forms can no longer be bypassed with a spoofed IP.** The form check
+  trusted `CF-Connecting-IP`, `X-Forwarded-For` and `X-Real-IP` from any client, so a bot
+  could send a clean IP past the StopForumSpam check. It now uses Symfony's
+  `Request::getClientIp()`, which only accepts these headers from trusted proxies. **Behind a
+  proxy or CDN (e.g. Cloudflare), set `TRUSTED_PROXIES` in `.env.local`**, otherwise the IP
+  blacklist checks the proxy's IP instead of the visitor's.
 
 ### Fixed
 - **Help text of the content-analysis threshold** (`c2n_content_spam_threshold`) described the
