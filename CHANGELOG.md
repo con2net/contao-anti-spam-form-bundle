@@ -21,6 +21,11 @@ All notable changes to this project will be documented in this file.
 - **ALTCHA field in a form without "ALTCHA aktivieren"**: the widget scripts were only loaded
   when the form setting was enabled, so the field stayed empty and every submission failed
   the ALTCHA check. The scripts now follow the rendered ALTCHA field.
+- **ALTCHA on subpages with the Twig page layout of Contao 5.7**: `altcha.min.js` and its
+  language packs were loaded with a relative path. The Twig layout has no `<base>` tag, so
+  on a page like `/a/b` the browser requested `/a/bundles/...`, and ALTCHA failed silently.
+  The scripts now use the base path of the installation (or the static URL of the website
+  root, like Contao's own scripts).
 
 ---
 

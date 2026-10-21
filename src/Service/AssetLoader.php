@@ -6,6 +6,7 @@ declare(strict_types=1);
 namespace Con2net\ContaoAntiSpamFormBundle\Service;
 
 use Contao\CoreBundle\Routing\ScopeMatcher;
+use Symfony\Component\Asset\Packages;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
@@ -35,13 +36,21 @@ class AssetLoader
         'pl' => 'pl.js',
     ];
 
+    /**
+     * Asset-Paket, das Contao für den public-Ordner des Bundles registriert
+     * (AddAssetsPackagesPass, 4.13 bis 5.7)
+     */
+    private const ASSET_PACKAGE = 'contao_anti_spam_form';
+
     private RequestStack $requestStack;
     private ScopeMatcher $scopeMatcher;
+    private Packages $packages;
 
-    public function __construct(RequestStack $requestStack, ScopeMatcher $scopeMatcher)
+    public function __construct(RequestStack $requestStack, ScopeMatcher $scopeMatcher, Packages $packages)
     {
         $this->requestStack = $requestStack;
         $this->scopeMatcher = $scopeMatcher;
+        $this->packages = $packages;
     }
 
     /**
@@ -70,7 +79,7 @@ class AssetLoader
         }
 
         // ALTCHA Library als ES Module laden (Web Component)
-        $GLOBALS['TL_HEAD']['c2n_altcha'] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js' . $this->getAssetVersion('js/altcha.min.js') . '"></script>';
+        $GLOBALS['TL_HEAD']['c2n_altcha'] = '<script type="module" src="' . $this->getModuleScriptUrl('js/altcha.min.js') . '"></script>';
 
         // Alle vendorten ALTCHA-Sprachpakete laden (offizielle
         // Übersetzungen, registrieren sich selbst im Widget-eigenen
@@ -79,7 +88,7 @@ class AssetLoader
         // document.documentElement.lang passende Sprache aus - kein
         // serverseitiges Sprach-Guessing nötig.
         foreach (self::ALTCHA_I18N_FILES as $language => $file) {
-            $GLOBALS['TL_HEAD']['c2n_altcha_i18n_' . $language] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . $this->getAssetVersion('js/i18n/' . $file) . '"></script>';
+            $GLOBALS['TL_HEAD']['c2n_altcha_i18n_' . $language] = '<script type="module" src="' . $this->getModuleScriptUrl('js/i18n/' . $file) . '"></script>';
         }
 
         // ALTCHA Event-Handler (normales Script)
@@ -97,6 +106,24 @@ class AssetLoader
         $request = $this->requestStack->getCurrentRequest();
 
         return null !== $request && $this->scopeMatcher->isFrontendRequest($request);
+    }
+
+    /**
+     * URL für Module-Scripts in TL_HEAD. Der Core gibt TL_HEAD unverändert aus, und das
+     * Twig-Layout (Contao 5.7) hat kein <base href>: Ein relativer Pfad würde auf /a/b
+     * nach /a/bundles/... aufgelöst. Das Asset-Paket des Bundles liefert den Pfad mit
+     * Basis-Pfad (Installation im Unterverzeichnis) bzw. Static-Domain, wie beim Core.
+     */
+    private function getModuleScriptUrl(string $path): string
+    {
+        $url = $this->packages->getUrl($path, self::ASSET_PACKAGE);
+        $version = $this->getAssetVersion($path);
+
+        if ('' !== $version && str_contains($url, '?')) {
+            $version = '&' . substr($version, 1);
+        }
+
+        return $url . $version;
     }
 
     /**
