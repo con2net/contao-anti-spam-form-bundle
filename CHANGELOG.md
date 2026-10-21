@@ -10,6 +10,11 @@ All notable changes to this project will be documented in this file.
 - **ALTCHA JS widget** updated from 3.2.2 to 3.4.1, including its language packs (3.4.0
   skipped: it rejected challenges in the legacy SHA format, altcha-org/altcha#202).
 
+### Fixed
+- **ALTCHA scripts loaded several times** with the Twig page layout of Contao 5.7:
+  `altcha.min.js` and its 7 language packs were added once per rendered fragment (measured
+  18 times on one page). They are now added only once.
+
 ---
 
 ## [1.3.0] - 2026-10-16

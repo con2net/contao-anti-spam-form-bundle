@@ -91,12 +91,14 @@ class PageListener
         // Prüfen ob irgendein Formular oder Registrierungs-Modul Anti-SPAM aktiviert hat
         $hasAntiSpam = $this->hasAntiSpamForms() || $this->hasAntiSpamRegistrations();
 
+        // Feste Schlüssel: Der Listener läuft auch in Fragment-Subrequests, und das
+        // Twig-Layout (Contao 5.7) gibt TL_HEAD ohne array_unique() aus
         if ($hasAntiSpam) {
             // CSS einbinden (OHNE |static für bessere Kompatibilität)
-            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/c2n-styles.css';
+            $GLOBALS['TL_CSS']['c2n_styles'] = 'bundles/contaoantispamform/css/c2n-styles.css';
 
             // JavaScript einbinden
-            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/timetoken.js';
+            $GLOBALS['TL_JAVASCRIPT']['c2n_timetoken'] = 'bundles/contaoantispamform/js/timetoken.js';
         }
 
         // ===== NEU: ALTCHA Assets laden (DSGVO-konform, lokal!) =====
@@ -104,7 +106,7 @@ class PageListener
 
         if ($hasAltcha) {
             // ALTCHA Library als ES Module laden (Web Component)
-            $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js' . $this->getAssetVersion('js/altcha.min.js') . '"></script>';
+            $GLOBALS['TL_HEAD']['c2n_altcha'] = '<script type="module" src="bundles/contaoantispamform/js/altcha.min.js' . $this->getAssetVersion('js/altcha.min.js') . '"></script>';
 
             // Alle vendorten ALTCHA-Sprachpakete laden (offizielle
             // Übersetzungen, registrieren sich selbst im Widget-eigenen
@@ -114,15 +116,15 @@ class PageListener
             // serverseitiges Sprach-Guessing nötig (und an dieser Stelle im
             // Request-Zyklus ist $request->getLocale() ohnehin noch nicht
             // zuverlässig die tatsächliche Seitensprache).
-            foreach (self::ALTCHA_I18N_FILES as $file) {
-                $GLOBALS['TL_HEAD'][] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . $this->getAssetVersion('js/i18n/' . $file) . '"></script>';
+            foreach (self::ALTCHA_I18N_FILES as $language => $file) {
+                $GLOBALS['TL_HEAD']['c2n_altcha_i18n_' . $language] = '<script type="module" src="bundles/contaoantispamform/js/i18n/' . $file . $this->getAssetVersion('js/i18n/' . $file) . '"></script>';
             }
 
             // ALTCHA Event-Handler (normales Script)
-            $GLOBALS['TL_JAVASCRIPT'][] = 'bundles/contaoantispamform/js/altcha-handler.js';
+            $GLOBALS['TL_JAVASCRIPT']['c2n_altcha_handler'] = 'bundles/contaoantispamform/js/altcha-handler.js';
 
             // ALTCHA Styles (OHNE |static)
-            $GLOBALS['TL_CSS'][] = 'bundles/contaoantispamform/css/altcha-styles.css';
+            $GLOBALS['TL_CSS']['c2n_altcha_styles'] = 'bundles/contaoantispamform/css/altcha-styles.css';
         }
     }
 
