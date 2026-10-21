@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **ALTCHA JS widget** updated from 3.2.2 to 3.4.1, including its language packs (3.4.0
+  skipped: it rejected challenges in the legacy SHA format, altcha-org/altcha#202).
+
+---
+
 ## [1.3.0] - 2026-10-16
 
 ### Added
