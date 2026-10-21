@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\EventListener;
 
+use Con2net\ContaoAntiSpamFormBundle\Service\AssetLoader;
 use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
 use Contao\CoreBundle\DependencyInjection\Attribute\AsHook;
 use Contao\Form;
@@ -23,11 +24,13 @@ class FormLoadListener
 {
     private RequestStack $requestStack;
     private LoggingHelper $loggingHelper;
+    private AssetLoader $assetLoader;
 
-    public function __construct(RequestStack $requestStack, LoggingHelper $loggingHelper)
+    public function __construct(RequestStack $requestStack, LoggingHelper $loggingHelper, AssetLoader $assetLoader)
     {
         $this->requestStack = $requestStack;
         $this->loggingHelper = $loggingHelper;
+        $this->assetLoader = $assetLoader;
     }
 
     /**
@@ -44,6 +47,9 @@ class FormLoadListener
         if (!$formModel || !$formModel->c2n_enable_antispam) {
             return $fields;
         }
+
+        // CSS/JS nur auf Seiten, die ein geschütztes Formular rendern
+        $this->assetLoader->addBaseAssets();
 
         // ===== Session über Request holen (Contao 4.13 + 5.3 kompatibel) =====
         $request = $this->requestStack->getCurrentRequest();

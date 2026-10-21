@@ -76,6 +76,17 @@ class AltchaFormField extends Widget
     }
 
     /**
+     * Parse - lädt die ALTCHA Assets nur dort, wo das Widget gerendert wird
+     * (Form ruft parse() auf, die Registrierung generate())
+     */
+    public function parse($arrAttributes = null)
+    {
+        System::getContainer()->get('con2net.antispam.asset_loader')->addAltchaAssets();
+
+        return parent::parse($arrAttributes);
+    }
+
+    /**
      * Generate
      */
     public function generate()

@@ -50,11 +50,21 @@ services:
     public: true
     autowire: false
 
+  # Asset Loader (public: wird vom ALTCHA-Widget über den Container geholt)
+  con2net.antispam.asset_loader:
+    class: Con2net\ContaoAntiSpamFormBundle\Service\AssetLoader
+    arguments:
+      $requestStack: '@request_stack'
+      $scopeMatcher: '@contao.routing.scope_matcher'
+    public: true
+    autowire: false
+
   # Form Load Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\FormLoadListener:
     arguments:
       $requestStack: '@request_stack'
       $loggingHelper: '@con2net.antispam.logging_helper'
+      $assetLoader: '@con2net.antispam.asset_loader'
     autowire: false
 
   # Registration Markup Listener
@@ -62,6 +72,7 @@ services:
     arguments:
       $requestStack: '@request_stack'
       $loggingHelper: '@con2net.antispam.logging_helper'
+      $assetLoader: '@con2net.antispam.asset_loader'
     autowire: false
 
   # Registration Spam Checker
@@ -103,18 +114,6 @@ services:
   # Cleanup Listener
   Con2net\ContaoAntiSpamFormBundle\EventListener\CleanupFormDataListener:
     autowire: false
-
-  # Page Listener
-  Con2net\ContaoAntiSpamFormBundle\EventListener\PageListener:
-    arguments:
-      $requestStack: '@request_stack'
-      $scopeMatcher: '@contao.routing.scope_matcher'
-      $framework: '@contao.framework'
-      $loggingHelper: '@con2net.antispam.logging_helper'
-      $cache: '@cache.app'
-    autowire: false
-    tags:
-      - { name: kernel.event_listener, event: kernel.request, priority: 20 }
 
   # Form Field Options Callback
   con2net.antispam.form_field_callback:

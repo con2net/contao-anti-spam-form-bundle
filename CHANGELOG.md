@@ -14,6 +14,13 @@ All notable changes to this project will be documented in this file.
 - **ALTCHA scripts loaded several times** with the Twig page layout of Contao 5.7:
   `altcha.min.js` and its 7 language packs were added once per rendered fragment (measured
   18 times on one page). They are now added only once.
+- **Anti-spam CSS/JS loaded on every page**: as soon as any form or registration module had
+  the protection enabled, the assets (including ALTCHA) were added to all pages of the
+  website. They are now only loaded on pages that actually render a protected form,
+  registration module or ALTCHA field.
+- **ALTCHA field in a form without "ALTCHA aktivieren"**: the widget scripts were only loaded
+  when the form setting was enabled, so the field stayed empty and every submission failed
+  the ALTCHA check. The scripts now follow the rendered ALTCHA field.
 
 ---
 

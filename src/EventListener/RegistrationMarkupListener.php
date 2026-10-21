@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 namespace Con2net\ContaoAntiSpamFormBundle\EventListener;
 
+use Con2net\ContaoAntiSpamFormBundle\Service\AssetLoader;
 use Con2net\ContaoAntiSpamFormBundle\Service\LoggingHelper;
 use Con2net\ContaoAntiSpamFormBundle\Widget\AltchaFormField;
 use Con2net\ContaoAntiSpamFormBundle\Widget\HoneypotField;
@@ -40,11 +41,13 @@ class RegistrationMarkupListener
 
     private RequestStack $requestStack;
     private LoggingHelper $loggingHelper;
+    private AssetLoader $assetLoader;
 
-    public function __construct(RequestStack $requestStack, LoggingHelper $loggingHelper)
+    public function __construct(RequestStack $requestStack, LoggingHelper $loggingHelper, AssetLoader $assetLoader)
     {
         $this->requestStack = $requestStack;
         $this->loggingHelper = $loggingHelper;
+        $this->assetLoader = $assetLoader;
     }
 
     public function __invoke(string $buffer, string $templateName, Template $template): string
@@ -66,6 +69,10 @@ class RegistrationMarkupListener
         }
 
         $this->storeTimestamp($moduleId, (int) $module->c2n_max_submit_time, (bool) $module->c2n_debug);
+
+        // CSS/JS nur auf Seiten, die ein geschütztes Registrierungs-Modul rendern
+        // (die ALTCHA Assets lädt das Widget selbst)
+        $this->assetLoader->addBaseAssets();
 
         $markup = (new HoneypotField([
             'id' => 'c2n_hp_' . $moduleId,

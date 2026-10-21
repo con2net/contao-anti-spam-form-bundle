@@ -464,14 +464,14 @@ Services:
   - IpBlacklistService    (StopForumSpam.com API)
   - ContentAnalysisService(Pattern-Matching)
   - LoggingHelper         (Unified Logging)
+  - AssetLoader           (CSS/JS Assets, nur wenn ein geschütztes Formular oder Registrierungs-Modul gerendert wird)
   - RegistrationSpamChecker  (SPAM-Checks der Mitglieder-Registrierung)
   - RegistrationReportMailer (Bericht per E-Mail, gedrosselt)
 
 Listener:
-  - FormLoadListener        (Session-Timestamp)
+  - FormLoadListener        (Session-Timestamp, CSS/JS Assets)
   - AntiSpamFormListener    (Multi-Layer SPAM-Checks)
   - CleanupFormDataListener (Entfernt technische Felder aus raw_data)
-  - PageListener            (CSS/JS Assets)
   - Notification/AbuseEmailNcV1Listener (NotificationCenter 1.x: Empfänger-Umleitung)
   - Notification/AbuseEmailNcV2Listener (NotificationCenter 2.x: Empfänger-Umleitung)
   - RegistrationPaletteListener (Einstellungen in tl_module)
