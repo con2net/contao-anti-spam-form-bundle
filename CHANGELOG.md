@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [Unreleased]
+## [1.3.1] - 2026-10-22
 
 ### Changed
 - **ALTCHA JS widget** updated from 3.2.2 to 3.4.1, including its language packs (3.4.0
