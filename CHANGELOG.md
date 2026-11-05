@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [1.3.2] - 2026-11-05
+
+### Fixed
+- **Error 500 when a front-end template without a name is parsed** (Fix #11): Contao calls
+  the `parseFrontendTemplate` hook with `null` as template name in that case, and the
+  registration listener (since 1.3.0) only accepted a string, which caused a `TypeError` on
+  the whole page. Happens e.g. with extensions that create a `FrontendTemplate` without a
+  template name.
+
+---
+
 ## [1.3.1] - 2026-10-22
 
 ### Changed

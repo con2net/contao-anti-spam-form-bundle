@@ -50,7 +50,7 @@ class RegistrationMarkupListener
         $this->assetLoader = $assetLoader;
     }
 
-    public function __invoke(string $buffer, string $templateName, Template $template): string
+    public function __invoke(string $buffer, ?string $templateName, Template $template): string
     {
         $formId = (string) $template->formId;
 
